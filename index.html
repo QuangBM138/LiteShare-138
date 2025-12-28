@@ -1,777 +1,835 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LiteShare - Secure Serverless Sharing</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a; --surface: #1e293b; --surface-2: #334155; --primary: #3b82f6; 
+            --text: #f8fafc; --text-dim: #94a3b8; --border: #334155; 
+            --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
+            --ai-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+        }
+        
+        [data-theme="light"] {
+            --bg: #f1f5f9; --surface: #ffffff; --surface-2: #e2e8f0; --primary: #2563eb; 
+            --text: #0f172a; --text-dim: #64748b; --border: #cbd5e1;
+        }
 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>LiteShare - Secure Serverless Sharing</title>
-        <link
-            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
-            rel="stylesheet">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-        <style>
-            :root {
-                --bg: #0f172a;
-                --surface: #1e293b;
-                --primary: #3b82f6;
-                --text: #f8fafc;
-                --text-dim: #94a3b8;
-                --border: #334155;
-                --danger: #ef4444;
-                --success: #22c55e;
-            }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
+        .hidden { display: none !important; }
+        
+        /* UI Elements */
+        .btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .btn-outline:hover { background: var(--surface-2); border-color: var(--text-dim); }
+        .btn-icon { padding: 8px; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; }
+        .btn-icon:hover { background: var(--surface-2); border-color: var(--border); }
+        
+        /* AI Button */
+        .btn-ai { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); position: relative; overflow: hidden; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+        .btn-ai:hover { border-color: #a855f7; color: #fff; }
+        .btn-ai::before { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 8px; padding: 1px; background: var(--ai-gradient); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; opacity: 0.7; }
+        
+        input, select, textarea { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 8px; font-family: inherit; outline: none; width: 100%; transition: border-color 0.2s; }
+        input:focus, textarea:focus, select:focus { border-color: var(--primary); }
+        
+        /* Custom Date Input */
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.6; }
+        [data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: none; }
 
-            body {
-                font-family: 'Inter', sans-serif;
-                background: var(--bg);
-                color: var(--text);
-                margin: 0;
-                display: flex;
-                flex-direction: column;
-                height: 100vh;
-                overflow: hidden;
-            }
+        /* Layout */
+        header { border-bottom: 1px solid var(--border); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; background: var(--bg); z-index: 50; }
+        .logo { font-weight: 700; font-size: 1.4rem; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .nav-controls { display: flex; gap: 8px; align-items: center; }
+        .lang-select { background: transparent; border: 1px solid var(--border); padding: 6px 8px; font-size: 0.85rem; cursor: pointer; border-radius: 6px; color: var(--text); }
+        .lang-select:hover { background: var(--surface-2); }
 
-            .hidden {
-                display: none !important;
-            }
+        main { flex: 1; position: relative; overflow-y: auto; padding: 20px; padding-bottom: 80px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Containers */
+        .view-container { width: 100%; max-width: 900px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 25px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); animation: fadeIn 0.3s ease; margin: auto; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-            /* Buttons */
-            .btn {
-                background: var(--primary);
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                cursor: pointer;
-                font-weight: 600;
-                transition: 0.2s;
-                font-size: 0.95rem;
-            }
+        /* Auth */
+        .auth-box { text-align: center; max-width: 400px; }
+        .auth-step { display: flex; flex-direction: column; gap: 15px; margin-top: 25px; }
+        .otp-input { text-align: center; letter-spacing: 8px; font-size: 1.5rem; font-weight: bold; }
 
-            .btn:hover {
-                opacity: 0.9;
-                transform: translateY(-1px);
-            }
+        /* --- TOOLBAR --- */
+        .editor-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            background: var(--bg);
+            padding: 8px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+        
+        .toolbar-group { display: flex; gap: 8px; align-items: center; flex: 1; }
+        .toolbar-right { justify-content: flex-end; flex: 0 0 auto; }
 
-            .btn-outline {
-                background: transparent;
-                border: 1px solid var(--border);
-                color: var(--text);
-            }
+        .duration-wrapper { position: relative; flex: 1; max-width: 250px; }
+        .duration-wrapper select { padding-left: 32px; height: 38px; cursor: pointer; appearance: none; }
+        .duration-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-dim); pointer-events: none; }
+        
+        .custom-date-container { margin-bottom: 12px; animation: slideDown 0.2s ease; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
-            .btn-outline:hover {
-                background: var(--surface);
-                border-color: var(--text-dim);
-            }
+        /* Editor Wrapper */
+        .editor-wrapper { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 450px; position: relative; }
+        .editor-wrapper:focus-within { border-color: var(--primary); }
+        .line-numbers { width: 45px; background: var(--surface-2); color: var(--text-dim); text-align: right; padding: 12px 8px; font-family: 'JetBrains Mono'; font-size: 13px; line-height: 1.6; border-right: 1px solid var(--border); display: none; user-select: none; }
+        .editor-area { flex: 1; border: none; padding: 12px; line-height: 1.6; font-size: 14px; background: transparent; color: var(--text); resize: none; font-family: 'Inter', sans-serif; }
+        
+        .code-mode .line-numbers { display: block; }
+        .code-mode .editor-area { white-space: pre; font-family: 'JetBrains Mono', monospace; }
 
-            /* Inputs */
-            input,
-            select,
-            textarea {
-                background: var(--surface);
-                border: 1px solid var(--border);
-                color: var(--text);
-                padding: 10px;
-                border-radius: 6px;
-                font-family: inherit;
-                outline: none;
-                transition: border-color 0.2s;
-            }
+        /* Dashboard Table */
+        .table-responsive { overflow-x: auto; margin-top: 20px; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 12px 15px; border-bottom: 1px solid var(--border); }
+        th { background: var(--surface-2); color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+        .id-cell { font-family: 'JetBrains Mono'; color: var(--primary); text-decoration: none; }
+        .status-badge { padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; display: inline-block; }
+        .status-active { background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status-expired { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
 
-            input:focus,
-            textarea:focus,
-            select:focus {
-                border-color: var(--primary);
-            }
+        /* User Dropdown Menu */
+        .user-menu-wrapper { position: relative; }
+        .user-dropdown {
+            position: absolute;
+            top: 120%;
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            min-width: 160px;
+            z-index: 100;
+            overflow: hidden;
+            animation: fadeIn 0.15s ease;
+        }
+        .dropdown-item {
+            padding: 12px 15px;
+            font-size: 0.9rem;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s;
+        }
+        .dropdown-item:hover { background: var(--surface-2); }
+        .dropdown-item.danger { color: var(--danger); }
+        .dropdown-item.danger:hover { background: rgba(239, 68, 68, 0.1); }
 
-            /* Header */
-            header {
-                border-bottom: 1px solid var(--border);
-                padding: 15px 20px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                background: rgba(15, 23, 42, 0.95);
-                backdrop-filter: blur(10px);
-            }
+        /* Modals & Loading */
+        .icon-svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 1000; display: flex; justify-content: center; align-items: center; }
+        .modal-box { background: var(--surface); padding: 30px; border-radius: 16px; max-width: 500px; width: 90%; text-align: center; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto; }
+        .ai-result-content { text-align: left; margin-top: 15px; padding: 15px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); max-height: 300px; overflow-y: auto; font-size: 0.9rem; line-height: 1.6; }
+        
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .ai-sparkle { display: inline-block; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+        
+        /* Result & Viewer */
+        .result-box { text-align: center; }
+        .qr-wrapper { background: white; padding: 15px; border-radius: 12px; display: inline-block; margin: 20px 0; }
+        .link-group { display: flex; gap: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 10px; }
+        .link-group input { border: none; background: transparent; flex: 1; font-family: 'JetBrains Mono'; font-size: 0.9em; padding: 12px; color: var(--text); }
+        .link-group button { border-radius: 0; margin: 0; height: auto; }
+        
+        .viewer-meta { color: var(--text-dim); font-size: 0.85em; margin-bottom: 15px; display: flex; gap: 15px; align-items: center; }
+        .viewer-content { white-space: pre-wrap; background: #0d1117; padding: 20px; border-radius: 10px; border: 1px solid var(--border); max-height: 65vh; overflow-y: auto; color: #e6edf3; font-family: 'Inter', sans-serif; }
+        .expired-banner { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .renew-form { display: flex; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+    <div id="loading" class="hidden"><div class="spinner"></div><span id="loadingText">Processing...</span></div>
+    
+    <!-- Expired Modal -->
+    <div id="modalExpired" class="hidden modal-overlay">
+        <div class="modal-box">
+            <div style="font-size: 3rem; margin-bottom: 15px;">⚠️</div>
+            <h2 data-i18n="linkExpiredTitle" style="margin-bottom: 10px;">Link Expired</h2>
+            <p style="color: var(--text-dim); margin-bottom: 25px;" data-i18n="linkExpiredMsg">This content is no longer available.</p>
+            <button class="btn" style="width:100%" onclick="app.goHome()" data-i18n="createOwnBtn">Create New Share</button>
+        </div>
+    </div>
 
-            .logo {
-                font-weight: 700;
-                font-size: 1.4rem;
-                color: var(--primary);
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
+    <!-- Settings Modal -->
+    <div id="modalSettings" class="hidden modal-overlay">
+        <div class="modal-box" style="text-align: left;">
+            <h3 style="margin-top: 0;">⚙️ Settings</h3>
+            <p style="font-size: 0.9em; color: var(--text-dim);">Enter your Gemini API Key to enable AI features.</p>
+            <input type="password" id="inputApiKey" placeholder="AIzaSy..." style="margin: 15px 0; font-family: monospace;">
+            <p style="font-size: 0.8em; color: var(--text-dim); margin-bottom: 25px;">Key is stored locally in your browser.</p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn-outline" onclick="document.getElementById('modalSettings').classList.add('hidden')">Close</button>
+                <button class="btn" onclick="settings.save()">Save</button>
+            </div>
+        </div>
+    </div>
 
-            .logo span {
-                color: #fff;
-            }
+    <!-- AI Result Modal -->
+    <div id="modalAI" class="hidden modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin: 0 0 10px 0;">✨ AI Response</h3>
+            <div id="aiResultContent" class="ai-result-content"></div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn-outline" onclick="document.getElementById('modalAI').classList.add('hidden')">Close</button>
+                <button class="btn" id="btnApplyAI" onclick="gemini.applyResult()" style="display:none;">Apply to Editor</button>
+            </div>
+        </div>
+    </div>
 
-            .nav-controls {
-                display: flex;
-                gap: 15px;
-                align-items: center;
-            }
+    <header>
+        <div class="logo" onclick="app.resetCreate()">
+            ⚡ <span>LiteShare</span>
+        </div>
+        <div class="nav-controls">
+            <button class="btn-outline btn-icon" onclick="theme.toggle()" title="Toggle Theme">
+                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            </button>
+            <select id="langSelect" class="lang-select" onchange="app.setLang(this.value)">
+                <option value="en">EN</option><option value="vi">VN</option>
+            </select>
+            <button class="btn-outline btn-icon" onclick="settings.open()" title="Settings">
+                <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+            
+            <!-- User Menu with Dropdown -->
+            <div class="user-menu-wrapper">
+                <button class="btn-outline btn-icon" id="btnUser" onclick="app.toggleUserMenu(event)" title="Account">
+                    <svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </button>
+                <div id="userDropdown" class="user-dropdown hidden">
+                    <div class="dropdown-item" onclick="app.showDashboard()">
+                        <svg class="icon-svg" style="width:16px;height:16px" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        <span data-i18n="dashboardMenu">Dashboard</span>
+                    </div>
+                    <div class="dropdown-item danger" onclick="auth.logout()">
+                        <svg class="icon-svg" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        <span data-i18n="logoutMenu">Logout</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
 
-            .lang-select {
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid var(--border);
-                padding: 6px 10px;
-                font-size: 0.85rem;
-                cursor: pointer;
-            }
-
-            /* Main Layout */
-            main {
-                flex: 1;
-                position: relative;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                overflow-y: auto;
-                padding: 20px;
-            }
-
-            .view-container {
-                width: 100%;
-                max-width: 800px;
-                background: #162032;
-                border: 1px solid var(--border);
-                border-radius: 16px;
-                padding: 30px;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            }
-
-            @keyframes fadeIn {
-                from {
-                    opacity: 0;
-                    transform: translateY(20px);
-                }
-
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            /* Components */
-            .auth-box {
-                text-align: center;
-                max-width: 400px;
-            }
-
-            .auth-step {
-                display: flex;
-                flex-direction: column;
-                gap: 15px;
-                margin-top: 25px;
-            }
-
-            .otp-input {
-                text-align: center;
-                letter-spacing: 8px;
-                font-size: 1.5rem;
-                font-weight: bold;
-            }
-
-            /* Create Header Updates */
-            .create-header {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 15px;
-                gap: 10px;
-                flex-wrap: wrap;
-                align-items: center;
-            }
-
-            .create-tools {
-                display: flex;
-                gap: 10px;
-                flex: 1;
-            }
-
-            /* CODE EDITOR STYLES */
-            .editor-wrapper {
-                display: flex;
-                position: relative;
-                background: #0d1117;
-                border: 1px solid var(--border);
-                border-radius: 6px;
-                overflow: hidden;
-                height: 400px;
-                /* Fixed height */
-                margin-bottom: 15px;
-            }
-
-            .line-numbers {
-                width: 45px;
-                background: #161b22;
-                color: #484f58;
-                text-align: right;
-                padding: 10px 5px;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 14px;
-                line-height: 1.6;
-                border-right: 1px solid var(--border);
-                user-select: none;
-                overflow: hidden;
-                display: none;
-                /* Hidden by default */
-            }
-
-            .editor-area {
-                flex: 1;
-                border: none;
-                border-radius: 0;
-                margin: 0;
-                resize: none;
-                padding: 10px;
-                line-height: 1.6;
-                font-size: 14px;
-                white-space: pre-wrap;
-                /* Default wrap */
-                background: transparent;
-                color: #e6edf3;
-                overflow: auto;
-            }
-
-            /* Active Editor Mode */
-            .editor-wrapper.code-mode .line-numbers {
-                display: block;
-            }
-
-            .editor-wrapper.code-mode .editor-area {
-                white-space: pre;
-                /* No wrap in code mode */
-                font-family: 'JetBrains Mono', monospace;
-            }
-
-            /* Viewer Specific */
-            .viewer-content-area {
-                width: 100%;
-                height: 100%;
-                overflow: auto;
-                border: none;
-                padding: 10px;
-                background: transparent;
-                color: #e6edf3;
-                font-family: inherit;
-                white-space: pre-wrap;
-            }
-
-            /* Result */
-            .result-box {
-                text-align: center;
-            }
-
-            .qr-wrapper {
-                background: white;
-                padding: 15px;
-                border-radius: 12px;
-                display: inline-block;
-                margin: 25px 0;
-            }
-
-            .link-group {
-                display: flex;
-                gap: 0;
-                background: #0d1117;
-                padding: 0;
-                border-radius: 8px;
-                border: 1px solid var(--border);
-                overflow: hidden;
-                margin-top: 10px;
-            }
-
-            .link-group input {
-                border: none;
-                background: transparent;
-                flex: 1;
-                font-family: 'JetBrains Mono';
-                font-size: 0.9em;
-                padding: 12px;
-            }
-
-            .link-group button {
-                border-radius: 0;
-                margin: 0;
-            }
-
-            /* Dashboard */
-            .table-responsive {
-                overflow-x: auto;
-                margin-top: 20px;
-            }
-
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 0.9rem;
-            }
-
-            th,
-            td {
-                text-align: left;
-                padding: 15px;
-                border-bottom: 1px solid var(--border);
-            }
-
-            th {
-                color: var(--text-dim);
-                font-weight: 600;
-                text-transform: uppercase;
-                font-size: 0.75rem;
-                letter-spacing: 0.05em;
-            }
-
-            tr:hover {
-                background: rgba(255, 255, 255, 0.03);
-            }
-
-            .id-cell {
-                font-family: 'JetBrains Mono';
-                color: var(--primary);
-                text-decoration: none;
-            }
-
-            .id-cell:hover {
-                text-decoration: underline;
-            }
-
-            /* Viewer Header */
-            .viewer-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 15px;
-                padding-bottom: 10px;
-                border-bottom: 1px solid var(--border);
-            }
-
-            .viewer-controls {
-                display: flex;
-                gap: 8px;
-            }
-
-            .viewer-meta {
-                color: var(--text-dim);
-                font-size: 0.85em;
-                margin-bottom: 15px;
-                display: flex;
-                gap: 15px;
-                align-items: center;
-            }
-
-            /* Loading */
-            #loading {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(15, 23, 42, 0.8);
-                backdrop-filter: blur(4px);
-                z-index: 999;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                color: white;
-                font-weight: 600;
-            }
-
-            .spinner {
-                width: 40px;
-                height: 40px;
-                border: 4px solid rgba(255, 255, 255, 0.1);
-                border-top-color: var(--primary);
-                border-radius: 50%;
-                animation: spin 0.8s linear infinite;
-                margin-bottom: 15px;
-            }
-
-            @keyframes spin {
-                to {
-                    transform: rotate(360deg);
-                }
-            }
-        </style>
-    </head>
-
-    <body>
-        <div id="loading" class="hidden">
-            <div class="spinner"></div> <span data-i18n="processing">Processing...</span>
+    <main>
+        <!-- 1. AUTH -->
+        <div id="view-auth" class="view-container auth-box hidden">
+            <h2 data-i18n="loginTitle">Login</h2>
+            <p style="color: var(--text-dim); margin-bottom: 25px;" data-i18n="loginSubtitle">Secure access to manage your links</p>
+            <div id="step-email">
+                <input type="email" id="inputEmail" placeholder="name@example.com" autofocus>
+                <button class="btn" style="width:100%; margin-top:20px" onclick="auth.sendOtp()" data-i18n="sendCodeBtn">Send Code</button>
+            </div>
+            <div id="step-otp" class="hidden">
+                <input type="text" id="inputOtp" class="otp-input" placeholder="••••••" maxlength="6">
+                <div style="display:flex; gap:10px; margin-top:20px">
+                    <button class="btn-outline" style="flex:1" onclick="auth.reset()" data-i18n="backBtn">Back</button>
+                    <button class="btn" style="flex:1" onclick="auth.verifyOtp()" data-i18n="verifyBtn">Login</button>
+                </div>
+            </div>
         </div>
 
-        <header>
-            <div class="logo" onclick="app.goHome()">⚡ <span>LiteShare</span></div>
-            <div class="nav-controls">
-                <select id="langSelect" class="lang-select" onchange="app.setLang(this.value)">
-                    <option value="en">🇺🇸 EN</option>
-                    <option value="vi">🇻🇳 VN</option>
-                </select>
-                <div id="userNav"></div>
+        <!-- 2. DASHBOARD -->
+        <div id="view-dashboard" class="view-container hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+                <h3 style="margin:0" data-i18n="historyTitle">My Links</h3>
             </div>
-        </header>
+            <div class="table-responsive">
+                <table id="historyTable">
+                    <thead><tr><th>ID</th><th data-i18n="typeCol">Type</th><th data-i18n="expiresCol">Expires</th><th data-i18n="viewsCol">Views</th><th>Status</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div style="margin-top:25px; text-align:center">
+                <button class="btn" onclick="app.resetCreate()" data-i18n="createNewBtn">+ Create New Share</button>
+            </div>
+        </div>
 
-        <main>
-            <!-- 1. AUTH -->
-            <div id="view-auth" class="view-container auth-box hidden">
-                <h2 data-i18n="loginTitle">Login / Register</h2>
-                <p style="color: var(--text-dim)" data-i18n="loginSubtitle">Enter your email to receive a secure code
-                </p>
-                <div id="step-email" class="auth-step">
-                    <input type="email" id="inputEmail" placeholder="name@example.com" autofocus>
-                    <button class="btn" onclick="auth.sendOtp()" data-i18n="sendCodeBtn">Send Code</button>
+        <!-- 3. CREATE -->
+        <div id="view-create" class="view-container hidden">
+            <!-- TOOLBAR -->
+            <div class="editor-toolbar">
+                <div class="toolbar-group duration-wrapper">
+                    <svg class="icon-svg duration-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <select id="shareDuration" onchange="app.handleDurationChange(this.value)">
+                        <option value="10" data-i18n="time10m">10 Minutes</option>
+                        <option value="30" data-i18n="time30m">30 Minutes</option>
+                        <option value="60" data-i18n="time1h">1 Hour</option>
+                        <option value="360" data-i18n="time6h">6 Hours</option>
+                        <option value="720" data-i18n="time12h">12 Hours</option>
+                        <option value="1440" data-i18n="time1d">1 Day</option>
+                        <option value="4320" data-i18n="time3d">3 Days</option>
+                        <option value="10080" data-i18n="time1w">1 Week</option>
+                        <option value="20160" data-i18n="time2w">2 Weeks</option>
+                        <option value="43200" data-i18n="time1mo">1 Month</option>
+                        <option value="129600" data-i18n="time3mo">3 Months</option>
+                        <option value="259200" data-i18n="time6mo">6 Months</option>
+                        <option value="525600" data-i18n="time1y">1 Year</option>
+                        <option value="52560000" data-i18n="timeForever">∞ Forever</option>
+                        <option value="custom" data-i18n="timeCustom">Custom Date...</option>
+                    </select>
                 </div>
-                <div id="step-otp" class="auth-step hidden">
-                    <input type="text" id="inputOtp" class="otp-input" placeholder="••••••" maxlength="6">
-                    <button class="btn" onclick="auth.verifyOtp()" data-i18n="verifyBtn">Verify & Login</button>
-                    <button class="btn-outline" onclick="auth.reset()" data-i18n="backBtn">Go Back</button>
+                
+                <div class="toolbar-group toolbar-right">
+                     <button class="btn-ai" onclick="gemini.enhance()">
+                        <span class="ai-sparkle">✨</span> <span data-i18n="aiRefine">Refine</span>
+                     </button>
+                     <button class="btn-outline" id="btnToggleEditorCreate" onclick="editor.toggleMode('create')" style="display:flex; align-items:center; gap:6px; font-weight:600">
+                        <svg class="icon-svg" viewBox="0 0 24 24" style="width:16px;height:16px"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                     </button>
                 </div>
             </div>
-
-            <!-- 2. DASHBOARD -->
-            <div id="view-dashboard" class="view-container hidden">
-                <div class="create-header">
-                    <h3 style="margin:0" data-i18n="historyTitle">My Shared Links</h3>
-                    <button class="btn" onclick="app.showCreate()" data-i18n="createNewBtn">+ Create New</button>
-                </div>
-                <div class="table-responsive">
-                    <table id="historyTable">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th data-i18n="typeCol">Type</th>
-                                <th data-i18n="createdCol">Created</th>
-                                <th data-i18n="expiresCol">Expires</th>
-                                <th data-i18n="viewsCol">Views</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- 3. CREATE -->
-            <div id="view-create" class="view-container hidden">
-                <div class="create-header">
-                    <div class="create-tools">
-                        <select id="shareDuration" style="flex:1">
-                            <option value="10" data-i18n="time10m">⏱ 10 Minutes</option>
-                            <option value="60" data-i18n="time1h">⏱ 1 Hour</option>
-                            <option value="1440" data-i18n="time1d">📅 1 Day</option>
-                            <option value="10080" data-i18n="time1w">📅 1 Week</option>
-                            <option value="43200" data-i18n="time1mo">📅 1 Month</option>
-                            <option value="525600" data-i18n="time1y">📅 1 Year</option>
-                            <option value="52560000" data-i18n="timeForever">∞ Forever</option>
-                        </select>
-                        <button class="btn-outline" id="btnToggleEditorCreate" onclick="editor.toggleMode('create')"
-                            style="white-space:nowrap" data-i18n="editorMode">{ } Editor Mode</button>
-                    </div>
-                </div>
-
-                <!-- Editor Wrapper -->
-                <div class="editor-wrapper" id="createEditorWrapper">
-                    <div class="line-numbers" id="createLineNumbers">1</div>
-                    <textarea id="textContent" class="editor-area" placeholder="Paste your text or code here..."
-                        spellcheck="false"></textarea>
-                </div>
-
-                <button class="btn" style="width: 100%; padding: 15px;" onclick="sharing.upload()"
-                    data-i18n="saveShareBtn">Save & Create Link</button>
+            
+            <div id="customDateContainer" class="hidden custom-date-container">
+                <input type="datetime-local" id="customDateInput">
             </div>
 
-            <!-- 4. RESULT -->
-            <div id="view-result" class="view-container result-box hidden">
-                <h3 data-i18n="successTitle" style="color: var(--success)">🎉 Link Created Successfully!</h3>
-                <div class="qr-wrapper">
-                    <div id="qrcode"></div>
+            <div class="editor-wrapper" id="createEditorWrapper">
+                <div class="line-numbers" id="createLineNumbers">1</div>
+                <textarea id="textContent" class="editor-area" placeholder="Paste your text or code here..." spellcheck="false"></textarea>
+            </div>
+            
+            <button class="btn" style="width: 100%; padding: 15px; margin-top: 15px;" onclick="sharing.upload()" data-i18n="saveShareBtn">Create Link</button>
+        </div>
+
+        <!-- 4. RESULT -->
+        <div id="view-result" class="view-container result-box hidden">
+            <h3 data-i18n="successTitle" style="color: var(--success); font-size: 1.5rem;">Link Ready!</h3>
+            <div class="qr-wrapper"><div id="qrcode"></div></div>
+            <div class="link-group">
+                <input type="text" id="shareLink" readonly onclick="this.select()">
+                <button class="btn" onclick="sharing.copyLink()" data-i18n="copyBtn">Copy</button>
+            </div>
+            <p style="color: var(--danger); font-size: 0.9em; margin-top: 25px;">
+                <span data-i18n="expiresLabel">Expires:</span> <b id="expireDisplay" style="font-family: 'JetBrains Mono';"></b>
+            </p>
+            <button class="btn-outline" style="margin-top: 20px; width:100%" onclick="app.resetCreate()" data-i18n="createAnotherBtn">Create Another</button>
+        </div>
+
+        <!-- 5. VIEWER -->
+        <div id="view-viewer" class="view-container hidden">
+            <div id="ownerRenewSection" class="hidden">
+                <div class="expired-banner">
+                    <span style="display:flex; align-items:center; gap:8px"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <strong data-i18n="msgExpired">This link has expired</strong></span>
+                    <button class="btn" style="padding: 6px 12px; font-size: 0.8rem; background: var(--surface); color: var(--text); border: 1px solid var(--border);" onclick="document.getElementById('renewForm').classList.toggle('hidden')">Renew</button>
                 </div>
-                <div class="link-group">
-                    <input type="text" id="shareLink" readonly onclick="this.select()">
-                    <button class="btn" onclick="sharing.copyLink()" data-i18n="copyBtn">Copy Link</button>
+                <div id="renewForm" class="renew-form hidden">
+                    <select id="renewDuration"><option value="60">Extend 1 Hour</option><option value="1440">Extend 1 Day</option><option value="10080">Extend 1 Week</option></select>
+                    <button class="btn" onclick="viewer.renew()" data-i18n="saveBtn">Save</button>
                 </div>
-                <p style="color: var(--danger); font-size: 0.9em; margin-top: 25px;">
-                    <span data-i18n="expiresLabel">This link expires at:</span> <br>
-                    <b id="expireDisplay" style="font-family: 'JetBrains Mono'"></b>
-                </p>
-                <button class="btn-outline" style="margin-top: 15px;" onclick="app.goHome()" data-i18n="homeBtn">Back to
-                    Home</button>
             </div>
 
-            <!-- 5. VIEWER -->
-            <div id="view-viewer" class="view-container hidden">
-                <div class="viewer-header">
-                    <h3 data-i18n="sharedContentTitle" style="margin:0">Shared Content</h3>
-                    <div class="viewer-controls">
-                        <button class="btn-outline" onclick="editor.toggleMode('view')" id="btnToggleEditorView"
-                            style="font-size:0.8rem; padding: 5px 10px;">{ } Editor Mode</button>
-                        <button class="btn hidden" id="btnEdit" onclick="viewer.enableEdit()" data-i18n="editBtn"
-                            style="font-size:0.8rem; padding: 5px 10px;">Edit</button>
-                    </div>
+            <!-- Viewer Toolbar -->
+            <div class="editor-toolbar" style="margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none;">
+                <div class="toolbar-group">
+                    <span id="viewMetaDate" style="color:var(--text-dim); font-size:0.85rem"></span>
+                    <span id="viewOwnerBadge" class="status-badge status-active hidden">Owner</span>
                 </div>
-                <div class="viewer-meta">
-                    <span id="viewMetaDate"></span>
-                    <span id="viewOwnerBadge"
-                        style="color: var(--primary); border:1px solid var(--primary); padding: 2px 6px; border-radius: 4px; font-size: 0.8em; display:none">Owner</span>
+                <div class="toolbar-group toolbar-right">
+                    <button class="btn-ai" onclick="gemini.explain()">
+                        <span class="ai-sparkle">✨</span> <span data-i18n="aiExplain">Explain</span>
+                    </button>
+                    <button class="btn-outline" onclick="editor.toggleMode('view')" id="btnToggleEditorView" style="display:flex; align-items:center; gap:6px; font-weight:600">
+                        <svg class="icon-svg" viewBox="0 0 24 24" style="width:16px;height:16px"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg> { }
+                    </button>
+                    <button class="btn hidden" id="btnEdit" onclick="viewer.enableEdit()" style="padding: 8px 12px;" data-i18n="editBtn">Edit</button>
                 </div>
-
-                <!-- View Mode Editor Wrapper -->
-                <div class="editor-wrapper" id="viewEditorWrapper">
-                    <div class="line-numbers" id="viewLineNumbers">1</div>
-                    <div id="viewContent" class="viewer-content-area"></div>
-                </div>
-
-                <!-- Edit Mode (Hidden textarea for editing existing shares) -->
-                <div class="editor-wrapper hidden" id="editEditorWrapper">
-                    <div class="line-numbers" id="editLineNumbers">1</div>
-                    <textarea id="editContent" class="editor-area" spellcheck="false"></textarea>
-                </div>
-
-                <div id="editControls" class="hidden" style="margin-top:10px; text-align:right">
-                    <button class="btn-outline" onclick="viewer.cancelEdit()" data-i18n="cancelBtn">Cancel</button>
-                    <button class="btn" onclick="viewer.saveEdit()" data-i18n="saveBtn"
-                        style="margin-left:5px">Save</button>
-                </div>
-
-                <button class="btn" style="margin-top: 25px; width: 100%" onclick="app.goHome()"
-                    data-i18n="createOwnBtn">Create your own share</button>
             </div>
-        </main>
+            
+            <div class="editor-wrapper" id="viewEditorWrapper" style="border-top-left-radius: 0; border-top-right-radius: 0;">
+                <div class="line-numbers" id="viewLineNumbers">1</div>
+                <div id="viewContent" class="editor-area" style="overflow:auto"></div>
+            </div>
+            
+            <div class="editor-wrapper hidden" id="editEditorWrapper">
+                <div class="line-numbers" id="editLineNumbers">1</div>
+                <textarea id="editContent" class="editor-area" spellcheck="false"></textarea>
+            </div>
+            
+            <div id="editControls" class="hidden" style="margin-top:15px; text-align:right">
+                <button class="btn-outline" onclick="viewer.cancelEdit()" data-i18n="cancelBtn">Cancel</button>
+                <button class="btn" onclick="viewer.saveEdit()" data-i18n="saveBtn" style="margin-left:10px">Save Changes</button>
+            </div>
+            
+            <button class="btn" style="margin-top: 25px; width: 100%" onclick="app.resetCreate()" data-i18n="createOwnBtn">Create New Share</button>
+        </div>
+    </main>
 
-        <script>
-            // CẤU HÌNH: Sửa PLACEHOLDER_API_URL thành link thật nếu chạy local
-            const API_URL = "PLACEHOLDER_API_URL";
+    <script>
+        const API_URL = "PLACEHOLDER_API_URL"; 
+        const apiKey = ""; // Gemini API Key
+        
+        const TRANSLATIONS = {
+            en: { loginTitle: "Login", loginSubtitle: "Enter email to access dashboard", sendCodeBtn: "Send Code", verifyBtn: "Login", backBtn: "Back", historyTitle: "My Links", logoutBtn: "Logout", createNewBtn: "+ Create Share", typeCol: "Type", expiresCol: "Expires", viewsCol: "Views", typeText: "📝 Text", typeCode: "💻 Code", 
+            time10m: "10 Minutes", time30m: "30 Minutes", time1h: "1 Hour", time6h: "6 Hours", time12h: "12 Hours", 
+            time1d: "1 Day", time3d: "3 Days", time1w: "1 Week", time2w: "2 Weeks", 
+            time1mo: "1 Month", time3mo: "3 Months", time6mo: "6 Months", time1y: "1 Year", timeForever: "∞ Forever", timeCustom: "Custom Date...",
+            saveShareBtn: "Create Link", successTitle: "Link Ready!", copyBtn: "Copy", expiresLabel: "Expires:", createAnotherBtn: "Create Another", sharedContentTitle: "Shared Content", createOwnBtn: "Create New Share", editBtn: "Edit", cancelBtn: "Cancel", saveBtn: "Save", linkExpiredTitle: "Link Expired", linkExpiredMsg: "This content is no longer available.", msgExpired: "Link Expired", msgUpdateSuccess: "Updated!", msgRenewSuccess: "Extended!", msgNotOwner: "Not authorized", processing: "Processing...", msgNoContent: "Content empty!", aiRefine: "Refine", aiExplain: "Explain", noData: "No history found.", msgInvalidDate: "Invalid expiration date!", dashboardMenu: "Dashboard", logoutMenu: "Logout" },
+            
+            vi: { loginTitle: "Đăng nhập", loginSubtitle: "Nhập email để vào Dashboard", sendCodeBtn: "Gửi Mã", verifyBtn: "Vào", backBtn: "Quay lại", historyTitle: "Link Của Tôi", logoutBtn: "Thoát", createNewBtn: "+ Tạo Link Mới", typeCol: "Loại", expiresCol: "Hết hạn", viewsCol: "Xem", typeText: "📝 Văn bản", typeCode: "💻 Code", 
+            time10m: "10 Phút", time30m: "30 Phút", time1h: "1 Giờ", time6h: "6 Giờ", time12h: "12 Giờ", 
+            time1d: "1 Ngày", time3d: "3 Ngày", time1w: "1 Tuần", time2w: "2 Tuần", 
+            time1mo: "1 Tháng", time3mo: "3 Tháng", time6mo: "6 Tháng", time1y: "1 Năm", timeForever: "∞ Vĩnh viễn", timeCustom: "Tùy chọn ngày...",
+            saveShareBtn: "Tạo Link", successTitle: "Đã Tạo Link!", copyBtn: "Sao Chép", expiresLabel: "Hết hạn:", createAnotherBtn: "Tạo Tiếp", sharedContentTitle: "Nội Dung", createOwnBtn: "Tạo Link Mới", editBtn: "Sửa", cancelBtn: "Hủy", saveBtn: "Lưu", linkExpiredTitle: "Link Hết Hạn", linkExpiredMsg: "Nội dung này không còn khả dụng.", msgExpired: "Link đã hết hạn", msgUpdateSuccess: "Đã cập nhật!", msgRenewSuccess: "Đã gia hạn!", msgNotOwner: "Không có quyền", processing: "Đang xử lý...", msgNoContent: "Nội dung trống!", aiRefine: "Sửa lỗi", aiExplain: "Giải thích", noData: "Chưa có dữ liệu.", msgInvalidDate: "Ngày hết hạn không hợp lệ!", dashboardMenu: "Bảng điều khiển", logoutMenu: "Đăng xuất" }
+        };
 
-            const TRANSLATIONS = {
-                en: { loginBtn: "Login", logoutBtn: "Logout", loginTitle: "Login / Register", loginSubtitle: "Enter your email to receive a secure code", sendCodeBtn: "Send Code", verifyBtn: "Verify & Login", backBtn: "Go Back", historyTitle: "My Shared Links", createNewBtn: "+ Create New", typeCol: "Type", createdCol: "Created", expiresCol: "Expires", viewsCol: "Views", typeText: "📝 Text / Code", typeFile: "📁 File (Coming soon)", time10m: "⏱ 10 Minutes", time1h: "⏱ 1 Hour", time1d: "📅 1 Day", time1w: "📅 1 Week", time1mo: "📅 1 Month", time1y: "📅 1 Year", timeForever: "∞ Forever", saveShareBtn: "Save & Create Link", successTitle: "🎉 Link Created Successfully!", copyBtn: "Copy Link", expiresLabel: "This link expires at:", homeBtn: "Back to Home", sharedContentTitle: "Shared Content", createOwnBtn: "Create your own share", processing: "Processing...", placeholderEditor: "Paste your text or code here...", placeholderEmail: "name@example.com", placeholderOtp: "••••••", msgCopied: "Link copied!", msgNoContent: "Content cannot be empty!", msgError: "Connection Error", noData: "No history found.", createdLabel: "Created", editBtn: "Edit", cancelBtn: "Cancel", saveBtn: "Save", editorMode: "{ } Editor Mode", msgUpdateSuccess: "Updated successfully!", msgNotOwner: "Not authorized!" },
-                vi: { loginBtn: "Đăng nhập", logoutBtn: "Đăng xuất", loginTitle: "Đăng nhập / Đăng ký", loginSubtitle: "Nhập email để nhận mã bảo mật", sendCodeBtn: "Gửi Mã", verifyBtn: "Xác nhận & Vào", backBtn: "Quay lại", historyTitle: "Link Đã Chia Sẻ", createNewBtn: "+ Tạo Mới", typeCol: "Loại", createdCol: "Ngày tạo", expiresCol: "Hết hạn", viewsCol: "Xem", typeText: "📝 Văn bản / Code", typeFile: "📁 Tệp tin (Sắp ra mắt)", time10m: "⏱ 10 Phút", time1h: "⏱ 1 Giờ", time1d: "📅 1 Ngày", time1w: "📅 1 Tuần", time1mo: "📅 1 Tháng", time1y: "📅 1 Năm", timeForever: "∞ Vĩnh viễn", saveShareBtn: "Lưu & Tạo Link", successTitle: "🎉 Tạo Link Thành Công!", copyBtn: "Sao Chép", expiresLabel: "Link sẽ hết hạn vào:", homeBtn: "Về Trang Chủ", sharedContentTitle: "Nội Dung Được Chia Sẻ", createOwnBtn: "Tạo link chia sẻ của bạn", processing: "Đang xử lý...", placeholderEditor: "Dán văn bản hoặc code vào đây...", placeholderEmail: "email@vidu.com", placeholderOtp: "••••••", msgCopied: "Đã sao chép link!", msgNoContent: "Nội dung trống!", msgError: "Lỗi kết nối", noData: "Chưa có dữ liệu.", createdLabel: "Ngày tạo", editBtn: "Sửa", cancelBtn: "Hủy", saveBtn: "Lưu", editorMode: "{ } Chế độ Code", msgUpdateSuccess: "Cập nhật thành công!", msgNotOwner: "Bạn không phải chủ sở hữu!" }
-            };
+        const state = { user: localStorage.getItem('ls_user'), lang: localStorage.getItem('ls_lang') || 'en', currentEmail: '', currentShareId: null, originalContent: '' };
 
-            const state = { user: localStorage.getItem('ls_user'), lang: localStorage.getItem('ls_lang') || 'en', currentEmail: '', currentShareId: null, originalContent: '' };
+        // --- THEME & SETTINGS ---
+        const theme = {
+            init: () => {
+                const t = localStorage.getItem('ls_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', t);
+            },
+            toggle: () => {
+                const current = document.documentElement.getAttribute('data-theme');
+                const next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('ls_theme', next);
+            }
+        };
 
-            // --- EDITOR LOGIC ---
-            const editor = {
-                isCodeMode: { create: false, view: false, edit: false },
+        const settings = {
+            open: () => {
+                document.getElementById('modalSettings').classList.remove('hidden');
+                document.getElementById('inputApiKey').value = localStorage.getItem('ls_gemini_key') || '';
+            },
+            save: () => {
+                const key = document.getElementById('inputApiKey').value.trim();
+                if(key) localStorage.setItem('ls_gemini_key', key);
+                else localStorage.removeItem('ls_gemini_key');
+                document.getElementById('modalSettings').classList.add('hidden');
+                alert("Settings Saved!");
+            }
+        };
 
-                init: () => {
-                    editor.attachEvents('textContent', 'createLineNumbers', 'create');
-                    editor.attachEvents('editContent', 'editLineNumbers', 'edit');
-                    // View content needs special handling since it's a div
-                    const viewContent = document.getElementById('viewContent');
-                    viewContent.addEventListener('scroll', () => {
-                        document.getElementById('viewLineNumbers').scrollTop = viewContent.scrollTop;
-                    });
-                },
-
-                attachEvents: (textareaId, lineNumbersId, modeKey) => {
-                    const textarea = document.getElementById(textareaId);
-                    const lineNumbers = document.getElementById(lineNumbersId);
-
-                    // Update lines on input
-                    textarea.addEventListener('input', () => editor.updateLines(textarea, lineNumbers));
-                    // Sync scroll
-                    textarea.addEventListener('scroll', () => {
-                        lineNumbers.scrollTop = textarea.scrollTop;
-                    });
-                    // Handle Tab key
-                    textarea.addEventListener('keydown', (e) => {
-                        if (e.key == 'Tab') {
-                            e.preventDefault();
-                            const start = textarea.selectionStart;
-                            const end = textarea.selectionEnd;
-                            textarea.value = textarea.value.substring(0, start) + "  " + textarea.value.substring(end);
-                            textarea.selectionStart = textarea.selectionEnd = start + 2;
-                            editor.updateLines(textarea, lineNumbers);
-                        }
-                    });
-                },
-
-                updateLines: (element, lineNumbersEle) => {
-                    const val = element.value || element.innerText || "";
-                    const lines = val.split('\n').length;
-                    lineNumbersEle.innerHTML = Array(lines).fill(0).map((_, i) => `<div>${i + 1}</div>`).join('');
-                },
-
-                toggleMode: (context) => { // context: 'create' or 'view'
-                    let wrapperId, btnId;
-                    if (context === 'create') {
-                        wrapperId = 'createEditorWrapper';
-                        btnId = 'btnToggleEditorCreate';
-                        // Trigger update lines immediately
-                        editor.updateLines(document.getElementById('textContent'), document.getElementById('createLineNumbers'));
-                    } else if (context === 'view') {
-                        wrapperId = 'viewEditorWrapper'; // Default view wrapper
-                        if (!document.getElementById('editEditorWrapper').classList.contains('hidden')) {
-                            wrapperId = 'editEditorWrapper'; // If editing, toggle edit wrapper
-                            editor.updateLines(document.getElementById('editContent'), document.getElementById('editLineNumbers'));
-                        } else {
-                            editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
-                        }
-                        btnId = 'btnToggleEditorView';
-                    }
-
-                    const wrapper = document.getElementById(wrapperId);
-                    const btn = document.getElementById(btnId);
-
-                    editor.isCodeMode[context] = !editor.isCodeMode[context];
-
-                    if (editor.isCodeMode[context]) {
-                        wrapper.classList.add('code-mode');
-                        btn.style.background = 'var(--surface)';
-                        btn.style.color = 'var(--primary)';
-                        btn.style.borderColor = 'var(--primary)';
-                    } else {
-                        wrapper.classList.remove('code-mode');
-                        btn.style.background = 'transparent';
-                        btn.style.color = 'var(--text)';
-                        btn.style.borderColor = 'var(--border)';
-                    }
+        // --- GEMINI AI ---
+        const gemini = {
+            getKey: () => apiKey || localStorage.getItem('ls_gemini_key'),
+            
+            call: async (prompt) => {
+                const key = gemini.getKey();
+                if (!key) {
+                    settings.open();
+                    throw new Error("Please enter your Gemini API Key in Settings.");
                 }
-            };
+                
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`;
+                const payload = { contents: [{ parts: [{ text: prompt }] }] };
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error.message);
+                    return data.candidates[0].content.parts[0].text;
+                } catch (e) {
+                    throw e;
+                }
+            },
 
-            const app = {
-                init: () => {
-                    document.getElementById('langSelect').value = state.lang;
-                    app.applyLang();
-                    editor.init(); // Init editor logic
-                    const p = new URLSearchParams(window.location.search);
-                    const id = p.get('id');
-                    if (id) viewer.load(id);
-                    else if (state.user) app.showDashboard();
-                    else app.showCreate();
-                    app.updateNav();
-                },
-                setLang: (l) => { state.lang = l; localStorage.setItem('ls_lang', l); app.applyLang(); },
-                applyLang: () => {
-                    const t = TRANSLATIONS[state.lang];
-                    document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (t[k]) el.innerText = t[k]; });
-                    document.getElementById('textContent').placeholder = t.placeholderEditor;
-                    app.updateNav();
-                },
-                t: (k) => TRANSLATIONS[state.lang][k] || k,
-                updateNav: () => {
-                    const nav = document.getElementById('userNav');
-                    if (state.user) nav.innerHTML = `<span style="font-size:0.9em;color:var(--text-dim);margin-right:8px;display:none;@media(min-width:600px){display:inline}">${state.user.split('@')[0]}</span> <button class="btn-outline" onclick="auth.logout()" style="padding:6px 12px;font-size:0.8rem">${app.t('logoutBtn')}</button>`;
-                    else nav.innerHTML = `<button class="btn" onclick="app.showAuth()" style="padding:6px 15px;font-size:0.8rem">${app.t('loginBtn')}</button>`;
-                },
-                hideAll: () => document.querySelectorAll('.view-container').forEach(el => el.classList.add('hidden')),
-                goHome: () => { try { window.history.pushState({}, document.title, window.location.pathname); } catch (e) { } state.user ? app.showDashboard() : app.showCreate(); },
-                showAuth: () => { app.hideAll(); document.getElementById('view-auth').classList.remove('hidden'); document.getElementById('inputEmail').focus(); },
-                showDashboard: () => { app.hideAll(); document.getElementById('view-dashboard').classList.remove('hidden'); dashboard.load(); },
-                showCreate: () => {
-                    app.hideAll();
-                    document.getElementById('view-create').classList.remove('hidden');
-                    document.getElementById('textContent').focus();
-                    // Reset editor mode
-                    const wrapper = document.getElementById('createEditorWrapper');
+            enhance: async () => {
+                const content = document.getElementById('textContent').value;
+                if (!content.trim()) return alert("Please enter some content first.");
+                
+                // Determine context based on toggle state
+                const isCode = editor.isCodeMode['create'];
+                
+                app.toggleLoading(true);
+                const prompt = isCode 
+                    ? `Review this code, fix bugs, format it, and improve logic if needed. Output ONLY the code:\n\n${content}`
+                    : `Proofread and improve this text for clarity and professionalism. Output ONLY the improved text:\n\n${content}`;
+                
+                try {
+                    const result = await gemini.call(prompt);
+                    gemini.showResult(result, true);
+                } catch (e) {
+                    alert("AI Error: " + e.message);
+                } finally {
+                    app.toggleLoading(false);
+                }
+            },
+
+            explain: async () => {
+                const content = state.originalContent;
+                const isCode = editor.isCodeMode['view'];
+                const type = isCode ? 'code' : 'text';
+                
+                app.toggleLoading(true);
+                const prompt = `Explain the following ${type} concisely and clearly:\n\n${content}`;
+                
+                try {
+                    const result = await gemini.call(prompt);
+                    gemini.showResult(result, false);
+                } catch (e) {
+                    alert("AI Error: " + e.message);
+                } finally {
+                    app.toggleLoading(false);
+                }
+            },
+
+            showResult: (text, allowApply) => {
+                const modal = document.getElementById('modalAI');
+                const contentDiv = document.getElementById('aiResultContent');
+                const btnApply = document.getElementById('btnApplyAI');
+                contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text.replace(/\n/g, '<br>');
+                
+                if (allowApply) {
+                    btnApply.style.display = 'block';
+                    btnApply.onclick = () => {
+                        document.getElementById('textContent').value = text;
+                        document.getElementById('textContent').dispatchEvent(new Event('input'));
+                        modal.classList.add('hidden');
+                    };
+                } else {
+                    btnApply.style.display = 'none';
+                }
+                modal.classList.remove('hidden');
+            }
+        };
+
+        // --- EDITOR ---
+        const editor = {
+            isCodeMode: { create: false, view: false },
+            init: () => {
+                editor.attachEvents('textContent', 'createLineNumbers');
+                editor.attachEvents('editContent', 'editLineNumbers');
+                editor.attachEvents('viewContent', 'viewLineNumbers', true);
+            },
+            attachEvents: (txtId, lineId, isDiv = false) => {
+                const txt = document.getElementById(txtId);
+                const lines = document.getElementById(lineId);
+                if (!isDiv) {
+                    txt.addEventListener('input', () => editor.updateLines(txt, lines));
+                    txt.addEventListener('scroll', () => lines.scrollTop = txt.scrollTop);
+                    txt.addEventListener('keydown', (e) => {
+                        if (e.key == 'Tab') { e.preventDefault(); const s = txt.selectionStart; txt.value = txt.value.substring(0,s) + "  " + txt.value.substring(txt.selectionEnd); txt.selectionStart = txt.selectionEnd = s+2; editor.updateLines(txt, lines); }
+                    });
+                }
+            },
+            updateLines: (ele, lineEle) => {
+                const val = ele.value || ele.innerText || "";
+                const count = val.split('\n').length;
+                lineEle.innerHTML = Array(count).fill(0).map((_, i) => `<div>${i + 1}</div>`).join('');
+            },
+            toggleMode: (ctx) => {
+                const wrapper = document.getElementById(ctx + 'EditorWrapper');
+                const btn = document.getElementById(ctx === 'create' ? 'btnToggleEditorCreate' : 'btnToggleEditorView');
+                editor.isCodeMode[ctx] = !editor.isCodeMode[ctx];
+                if (editor.isCodeMode[ctx]) {
+                    wrapper.classList.add('code-mode');
+                    btn.style.background = 'var(--surface-2)'; btn.style.color = 'var(--primary)';
+                } else {
                     wrapper.classList.remove('code-mode');
-                    editor.isCodeMode['create'] = false;
-                    document.getElementById('btnToggleEditorCreate').style.cssText = "";
-                },
-                showResult: () => { app.hideAll(); document.getElementById('view-result').classList.remove('hidden'); },
-                showViewer: () => { app.hideAll(); document.getElementById('view-viewer').classList.remove('hidden'); },
-                toggleLoading: (show) => document.getElementById('loading').classList.toggle('hidden', !show)
-            };
-
-            const api = async (p) => {
-                if (API_URL.includes("PLACEHOLDER")) { alert("Lỗi: Chưa cấu hình API URL!"); return { success: false }; }
-                app.toggleLoading(true); p.lang = state.lang;
-                try { const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(p) }); const d = await r.json(); app.toggleLoading(false); return d; } catch (e) { app.toggleLoading(false); alert(app.t('msgError') + ": " + e); return { success: false }; }
-            };
-
-            const auth = {
-                sendOtp: async () => { const e = document.getElementById('inputEmail').value; if (!e) return; state.currentEmail = e; const r = await api({ action: 'sendOtp', email: e }); if (r.success) { document.getElementById('step-email').classList.add('hidden'); document.getElementById('step-otp').classList.remove('hidden'); document.getElementById('inputOtp').focus(); } else alert(r.message); },
-                verifyOtp: async () => { const o = document.getElementById('inputOtp').value; const r = await api({ action: 'verifyOtp', email: state.currentEmail, otp: o }); if (r.success) { state.user = r.token; localStorage.setItem('ls_user', state.user); app.updateNav(); app.showDashboard(); } else alert(r.message); },
-                reset: () => { document.getElementById('step-email').classList.remove('hidden'); document.getElementById('step-otp').classList.add('hidden'); },
-                logout: () => { localStorage.removeItem('ls_user'); state.user = null; app.updateNav(); app.showCreate(); }
-            };
-
-            const sharing = {
-                upload: async () => { const c = document.getElementById('textContent').value; const d = document.getElementById('shareDuration').value; if (!c.trim()) return alert(app.t('msgNoContent')); const r = await api({ action: 'upload', type: 'text', content: c, duration: d, owner: state.user || 'guest' }); if (r.success) sharing.displayResult(r.id, r.expires); else alert(r.message); },
-                displayResult: (id, exp) => { const u = window.location.href.split('?')[0] + '?id=' + id; document.getElementById('shareLink').value = u; document.getElementById('expireDisplay').innerText = new Date(exp).toLocaleString(state.lang); document.getElementById('qrcode').innerHTML = ""; new QRCode(document.getElementById("qrcode"), { text: u, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M }); app.showResult(); },
-                copyLink: () => { const c = document.getElementById("shareLink"); c.select(); navigator.clipboard.writeText(c.value); alert(app.t('msgCopied')); }
-            };
-
-            const dashboard = {
-                load: async () => { if (!state.user) return; const tb = document.querySelector('#historyTable tbody'); tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px">${app.t('processing')}</td></tr>`; const r = await api({ action: 'getHistory', email: state.user }); tb.innerHTML = ""; if (r.success && r.history.length > 0) { r.history.forEach(i => { const ex = new Date() > new Date(i.expires); const cl = ex ? 'var(--danger)' : 'var(--success)'; const tr = document.createElement('tr'); tr.innerHTML = `<td><a href="?id=${i.id}" target="_blank" class="id-cell">${i.id.substring(0, 8)}...</a></td><td>${i.type}</td><td>${new Date(i.created).toLocaleDateString(state.lang)}</td><td style="color:${cl}">${new Date(i.expires).toLocaleDateString(state.lang)}</td><td>${i.views}</td>`; tb.appendChild(tr); }); } else tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--text-dim);padding:30px'>${app.t('noData')}</td></tr>`; }
-            };
-
-            const viewer = {
-                load: async (id) => {
-                    app.showViewer();
-                    state.currentShareId = id;
-
-                    // Reset View
-                    const viewWrapper = document.getElementById('viewEditorWrapper');
-                    viewWrapper.classList.remove('code-mode');
-                    editor.isCodeMode['view'] = false;
-                    document.getElementById('btnToggleEditorView').style.cssText = "";
-                    document.getElementById('btnEdit').classList.add('hidden');
-                    document.getElementById('viewContent').innerHTML = `<div style="text-align:center;padding:20px">${app.t('processing')}</div>`;
-
-                    const r = await api({ action: 'getData', id: id });
-                    if (r.success) {
-                        state.originalContent = r.content;
-                        document.getElementById('viewMetaDate').innerText = `${app.t('createdLabel')}: ${new Date(r.created).toLocaleString(state.lang)}`;
-                        viewer.renderContent(r.content);
-                        editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
-
-                        if (state.user && state.user === r.owner) { document.getElementById('viewOwnerBadge').style.display = 'inline'; document.getElementById('btnEdit').classList.remove('hidden'); } else document.getElementById('viewOwnerBadge').style.display = 'none';
-                    } else document.getElementById('viewContent').innerHTML = `<div style="color:var(--danger);text-align:center">⛔ ${r.message}</div>`;
-                },
-                renderContent: (t) => {
-                    // Simple escape
-                    const s = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-                    document.getElementById('viewContent').innerHTML = s;
-                },
-                enableEdit: () => {
-                    document.getElementById('viewEditorWrapper').classList.add('hidden');
-                    document.getElementById('editEditorWrapper').classList.remove('hidden');
-                    document.getElementById('editControls').classList.remove('hidden');
-                    document.getElementById('btnEdit').classList.add('hidden');
-
-                    // Set content and trigger update
-                    const editArea = document.getElementById('editContent');
-                    editArea.value = state.originalContent;
-                    editor.updateLines(editArea, document.getElementById('editLineNumbers'));
-
-                    // Match mode
-                    if (editor.isCodeMode['view']) {
-                        document.getElementById('editEditorWrapper').classList.add('code-mode');
-                    } else {
-                        document.getElementById('editEditorWrapper').classList.remove('code-mode');
-                    }
-
-                    editArea.focus();
-                },
-                cancelEdit: () => {
-                    document.getElementById('viewEditorWrapper').classList.remove('hidden');
-                    document.getElementById('editEditorWrapper').classList.add('hidden');
-                    document.getElementById('editControls').classList.add('hidden');
-                    document.getElementById('btnEdit').classList.remove('hidden');
-                },
-                saveEdit: async () => {
-                    const n = document.getElementById('editContent').value;
-                    if (!n.trim()) return alert(app.t('msgNoContent'));
-                    const r = await api({ action: 'update', id: state.currentShareId, email: state.user, content: n });
-                    if (r.success) {
-                        alert(app.t('msgUpdateSuccess'));
-                        state.originalContent = n;
-                        viewer.renderContent(n);
-                        editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
-                        viewer.cancelEdit();
-                    } else alert(r.message);
+                    btn.style.background = 'transparent'; btn.style.color = 'var(--text)';
                 }
-            };
+                if (ctx === 'create') editor.updateLines(document.getElementById('textContent'), document.getElementById('createLineNumbers'));
+                else if (ctx === 'view') {
+                    if (!document.getElementById('editEditorWrapper').classList.contains('hidden')) editor.updateLines(document.getElementById('editContent'), document.getElementById('editLineNumbers'));
+                    else editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
+                }
+            }
+        };
 
-            app.init();
-        </script>
-    </body>
+        const app = {
+            init: () => { 
+                theme.init();
+                document.getElementById('langSelect').value = state.lang; 
+                app.applyLang(); 
+                editor.init();
+                
+                const p = new URLSearchParams(window.location.search); 
+                const id = p.get('id'); 
+                
+                if (id) viewer.load(id); 
+                else app.resetCreate(); // Default to create
+                
+                app.updateUserUI();
 
+                // Close dropdown on outside click
+                document.addEventListener('click', (e) => {
+                    const dropdown = document.getElementById('userDropdown');
+                    const btn = document.getElementById('btnUser');
+                    if (!dropdown.classList.contains('hidden') && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.add('hidden');
+                    }
+                });
+            },
+            
+            setLang: (l) => { state.lang = l; localStorage.setItem('ls_lang', l); app.applyLang(); },
+            
+            applyLang: () => { 
+                const t = TRANSLATIONS[state.lang]; 
+                document.querySelectorAll('[data-i18n]').forEach(el => { 
+                    const k = el.getAttribute('data-i18n'); if (t[k]) el.innerText = t[k]; 
+                }); 
+            },
+            
+            t: (k) => TRANSLATIONS[state.lang][k] || k,
+
+            updateUserUI: () => {
+                const btnUser = document.getElementById('btnUser');
+                if (state.user) {
+                    btnUser.style.color = 'var(--success)';
+                    btnUser.style.borderColor = 'var(--success)';
+                } else {
+                    btnUser.style.color = 'var(--text)';
+                    btnUser.style.borderColor = 'var(--border)';
+                }
+                // Also hide dropdown if logged out
+                if (!state.user) document.getElementById('userDropdown').classList.add('hidden');
+            },
+
+            toggleUserMenu: (e) => {
+                if (!state.user) {
+                    app.showAuth();
+                } else {
+                    const dropdown = document.getElementById('userDropdown');
+                    dropdown.classList.toggle('hidden');
+                    e.stopPropagation();
+                }
+            },
+
+            hideAll: () => document.querySelectorAll('.view-container').forEach(el => el.classList.add('hidden')),
+            
+            goHome: () => {
+                // Clear URL params without reload
+                try {
+                    window.history.pushState({}, document.title, window.location.pathname);
+                } catch (e) {
+                    console.log("History API not supported in this environment");
+                }
+                app.resetCreate();
+            },
+
+            // --- NAVIGATION ---
+            showAuth: () => { app.hideAll(); document.getElementById('view-auth').classList.remove('hidden'); document.getElementById('inputEmail').focus(); },
+            
+            showDashboard: () => { 
+                app.hideAll(); 
+                document.getElementById('view-dashboard').classList.remove('hidden'); 
+                document.getElementById('userDropdown').classList.add('hidden');
+                dashboard.load(); // Reload data explicitly
+            },
+            
+            resetCreate: () => {
+                // Clear URL params
+                try {
+                    window.history.pushState({}, document.title, window.location.pathname);
+                } catch (e) {
+                    console.log("History API not supported in this environment");
+                }
+                
+                app.hideAll();
+                document.getElementById('view-create').classList.remove('hidden');
+                
+                // Reset inputs
+                document.getElementById('textContent').value = '';
+                document.getElementById('shareDuration').value = '10';
+                document.getElementById('customDateInput').value = '';
+                document.getElementById('customDateContainer').classList.add('hidden');
+                document.getElementById('createLineNumbers').innerHTML = '1'; 
+                document.getElementById('modalExpired').classList.add('hidden'); 
+                
+                // Reset editor visual state
+                const wrapper = document.getElementById('createEditorWrapper');
+                const btn = document.getElementById('btnToggleEditorCreate');
+                wrapper.classList.remove('code-mode');
+                btn.style.background = 'transparent'; btn.style.color = 'var(--text)';
+                editor.isCodeMode['create'] = false;
+
+                document.getElementById('textContent').focus(); 
+            },
+            handleDurationChange: (val) => {
+                const container = document.getElementById('customDateContainer');
+                const dateInput = document.getElementById('customDateInput');
+                if (val === 'custom') {
+                    container.classList.remove('hidden');
+                    // Set min datetime to now
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    dateInput.min = now.toISOString().slice(0,16);
+                } else {
+                    container.classList.add('hidden');
+                }
+            },
+            showResult: () => { app.hideAll(); document.getElementById('view-result').classList.remove('hidden'); },
+            showViewer: () => { app.hideAll(); document.getElementById('view-viewer').classList.remove('hidden'); },
+            toggleLoading: (show) => document.getElementById('loading').classList.toggle('hidden', !show)
+        };
+
+        const api = async (p) => {
+            if (API_URL.includes("PLACEHOLDER")) { alert("API URL Missing!"); return { success: false }; }
+            app.toggleLoading(true); p.lang = state.lang;
+            try { const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(p) }); return await r.json(); } 
+            catch (e) { alert("Error: " + e); return { success: false }; } 
+            finally { app.toggleLoading(false); }
+        };
+
+        const auth = {
+            sendOtp: async () => { const e = document.getElementById('inputEmail').value.trim(); if (!e) return; state.currentEmail = e; const r = await api({ action: 'sendOtp', email: e }); if (r.success) { document.getElementById('step-email').classList.add('hidden'); document.getElementById('step-otp').classList.remove('hidden'); } else alert(r.message); },
+            verifyOtp: async () => { const o = document.getElementById('inputOtp').value.trim(); const r = await api({ action: 'verifyOtp', email: state.currentEmail, otp: o }); if (r.success) { state.user = r.token; localStorage.setItem('ls_user', state.user); app.updateUserUI(); app.showDashboard(); } else alert(r.message); },
+            reset: () => { document.getElementById('step-email').classList.remove('hidden'); document.getElementById('step-otp').classList.add('hidden'); },
+            logout: () => { 
+                localStorage.removeItem('ls_user'); 
+                state.user = null; 
+                app.updateUserUI(); 
+                app.resetCreate(); 
+            }
+        };
+
+        const sharing = {
+            upload: async () => { 
+                const c = document.getElementById('textContent').value; 
+                if (!c.trim()) return alert(app.t('msgNoContent')); 
+                
+                let duration = document.getElementById('shareDuration').value;
+                
+                // Handle Custom Duration
+                if (duration === 'custom') {
+                    const dateVal = document.getElementById('customDateInput').value;
+                    if (!dateVal) return alert(app.t('msgInvalidDate'));
+                    
+                    const targetDate = new Date(dateVal);
+                    const now = new Date();
+                    const diffMs = targetDate - now;
+                    
+                    if (diffMs <= 0) return alert(app.t('msgInvalidDate'));
+                    
+                    // Convert ms to minutes
+                    duration = Math.ceil(diffMs / 60000);
+                }
+
+                const r = await api({ 
+                    action: 'upload', 
+                    type: 'text', // Always text type, format handles display
+                    content: c, 
+                    duration: duration, 
+                    owner: state.user || 'guest' 
+                }); 
+                
+                if (r.success) sharing.displayResult(r.id, r.expires); 
+                else alert(r.message); 
+            },
+            displayResult: (id, exp) => { const u = window.location.href.split('?')[0] + '?id=' + id; document.getElementById('shareLink').value = u; document.getElementById('expireDisplay').innerText = new Date(exp).toLocaleString(state.lang); document.getElementById('qrcode').innerHTML = ""; new QRCode(document.getElementById("qrcode"), { text: u, width: 128, height: 128 }); app.showResult(); },
+            copyLink: () => { const c = document.getElementById("shareLink"); c.select(); navigator.clipboard.writeText(c.value); alert("Copied!"); }
+        };
+
+        const dashboard = {
+            load: async () => { 
+                if (!state.user) return; 
+                const tb = document.querySelector('#historyTable tbody'); 
+                // Clear table and show Loading row immediately
+                tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px">${app.t('processing')}</td></tr>`;
+                
+                const r = await api({ action: 'getHistory', email: state.user }); 
+                tb.innerHTML = ""; // Clear loading
+                
+                if (r.success) {
+                    if (r.history && r.history.length > 0) { 
+                        r.history.forEach(i => { 
+                            const isExp = new Date() > new Date(i.expires);
+                            const statusClass = isExp ? 'status-expired' : 'status-active';
+                            const statusText = isExp ? 'Expired' : 'Active';
+                            const tr = document.createElement('tr'); 
+                            tr.innerHTML = `<td><a href="?id=${i.id}" target="_blank" class="id-cell">${i.id.substring(0,6)}..</a></td><td>${i.type}</td><td>${new Date(i.expires).toLocaleDateString()}</td><td>${i.views}</td><td><span class="status-badge ${statusClass}">${statusText}</span></td>`; 
+                            tb.appendChild(tr); 
+                        }); 
+                    } else {
+                        tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--text-dim);padding:30px'>${app.t('noData')}</td></tr>`;
+                    }
+                } else {
+                    tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--danger);padding:30px'>Error loading data</td></tr>`;
+                }
+            }
+        };
+
+        const viewer = {
+            load: async (id) => { 
+                app.showViewer(); 
+                state.currentShareId = id; 
+                document.getElementById('viewContent').innerHTML = "";
+                document.getElementById('ownerRenewSection').classList.add('hidden');
+                document.getElementById('btnEdit').classList.add('hidden');
+                
+                // Pass user email to check ownership server-side
+                const r = await api({ action: 'getData', id: id, email: state.user }); 
+                
+                if (r.success) { 
+                    // Render content
+                    state.originalContent = r.content; 
+                    document.getElementById('viewMetaDate').innerText = `Created: ${new Date(r.created).toLocaleDateString()}`; 
+                    viewer.renderContent(r.content); 
+                    editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
+                    
+                    const isOwner = (state.user && state.user === r.owner);
+                    
+                    if (r.isExpired) {
+                        if (isOwner) {
+                            // Owner sees expired content + renew option
+                            document.getElementById('ownerRenewSection').classList.remove('hidden');
+                            document.getElementById('viewOwnerBadge').classList.remove('hidden');
+                        } else {
+                            // Guest sees modal
+                            document.getElementById('modalExpired').classList.remove('hidden');
+                        }
+                    } else {
+                        // Not expired
+                        if (isOwner) {
+                            document.getElementById('viewOwnerBadge').classList.remove('hidden');
+                            document.getElementById('btnEdit').classList.remove('hidden'); 
+                        }
+                    }
+                } else {
+                    // Logic failure or hard error
+                    document.getElementById('modalExpired').classList.remove('hidden');
+                }
+            },
+            renderContent: (t) => { document.getElementById('viewContent').innerText = t; },
+            enableEdit: () => { 
+                document.getElementById('viewEditorWrapper').classList.add('hidden'); document.getElementById('editEditorWrapper').classList.remove('hidden'); document.getElementById('editControls').classList.remove('hidden'); document.getElementById('btnEdit').classList.add('hidden'); 
+                const area = document.getElementById('editContent'); area.value = state.originalContent; editor.updateLines(area, document.getElementById('editLineNumbers')); area.focus(); 
+            },
+            cancelEdit: () => { document.getElementById('viewEditorWrapper').classList.remove('hidden'); document.getElementById('editEditorWrapper').classList.add('hidden'); document.getElementById('editControls').classList.add('hidden'); document.getElementById('btnEdit').classList.remove('hidden'); },
+            saveEdit: async () => { const n = document.getElementById('editContent').value; const r = await api({ action: 'update', id: state.currentShareId, email: state.user, content: n }); if (r.success) { alert(app.t('msgUpdateSuccess')); state.originalContent = n; viewer.renderContent(n); viewer.cancelEdit(); } else alert(r.message); },
+            renew: async () => {
+                const dur = document.getElementById('renewDuration').value;
+                const r = await api({ action: 'renew', id: state.currentShareId, email: state.user, duration: dur });
+                if (r.success) {
+                    alert(app.t('msgRenewSuccess'));
+                    window.location.reload();
+                } else alert(r.message);
+            }
+        };
+
+        app.init();
+    </script>
+</body>
 </html>
