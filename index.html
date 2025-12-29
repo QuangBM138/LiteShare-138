@@ -92,10 +92,27 @@
         .editor-wrapper { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 450px; position: relative; }
         .editor-wrapper:focus-within { border-color: var(--primary); }
         .line-numbers { width: 45px; background: var(--surface-2); color: var(--text-dim); text-align: right; padding: 12px 8px; font-family: 'JetBrains Mono'; font-size: 13px; line-height: 1.6; border-right: 1px solid var(--border); display: none; user-select: none; }
-        .editor-area { flex: 1; border: none; padding: 12px; line-height: 1.6; font-size: 14px; background: transparent; color: var(--text); resize: none; font-family: 'Inter', sans-serif; }
+        .editor-area { flex: 1; border: none; padding: 12px; padding-bottom: 30px; line-height: 1.6; font-size: 14px; background: transparent; color: var(--text); resize: none; font-family: 'Inter', sans-serif; }
         
         .code-mode .line-numbers { display: block; }
         .code-mode .editor-area { white-space: pre; font-family: 'JetBrains Mono', monospace; }
+
+        /* Character Counter */
+        .char-counter {
+            position: absolute;
+            bottom: 5px;
+            right: 15px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            background: rgba(0,0,0,0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            transition: color 0.2s;
+            font-family: 'JetBrains Mono', monospace;
+            z-index: 10;
+        }
+        .char-counter.limit-reached { color: var(--danger); font-weight: bold; background: rgba(239, 68, 68, 0.1); }
 
         /* Dashboard Table */
         .table-responsive { overflow-x: auto; margin-top: 20px; border-radius: 8px; border: 1px solid var(--border); }
@@ -173,6 +190,16 @@
             <h2 data-i18n="linkExpiredTitle" style="margin-bottom: 10px;">Link Expired</h2>
             <p style="color: var(--text-dim); margin-bottom: 25px;" data-i18n="linkExpiredMsg">This content is no longer available.</p>
             <button class="btn" style="width:100%" onclick="app.goHome()" data-i18n="createOwnBtn">Create New Share</button>
+        </div>
+    </div>
+
+    <!-- Limit Exceeded Modal -->
+    <div id="modalLimit" class="hidden modal-overlay">
+        <div class="modal-box">
+            <div style="font-size: 3rem; margin-bottom: 15px;">🚫</div>
+            <h2 data-i18n="limitTitle" style="margin-bottom: 10px;">Limit Exceeded</h2>
+            <p style="color: var(--text-dim); margin-bottom: 25px;" data-i18n="limitMsg">Content is too long (Max 200,000 chars).</p>
+            <button class="btn-outline" style="width:100%" onclick="document.getElementById('modalLimit').classList.add('hidden')">Close</button>
         </div>
     </div>
 
@@ -312,6 +339,7 @@
             <div class="editor-wrapper" id="createEditorWrapper">
                 <div class="line-numbers" id="createLineNumbers">1</div>
                 <textarea id="textContent" class="editor-area" placeholder="Paste your text or code here..." spellcheck="false"></textarea>
+                <div id="charCounter" class="char-counter">0 / 200000</div>
             </div>
             
             <button class="btn" style="width: 100%; padding: 15px; margin-top: 15px;" onclick="sharing.upload()" data-i18n="saveShareBtn">Create Link</button>
@@ -388,25 +416,25 @@
 
     <script>
         const API_URL = "PLACEHOLDER_API_URL"; 
-        const apiKey = ""; // Gemini API Key
+        const apiKey = ""; 
+        const MAX_CHARS = 200000;
         
         const TRANSLATIONS = {
             en: { loginTitle: "Login", loginSubtitle: "Enter email to access dashboard", sendCodeBtn: "Send Code", verifyBtn: "Login", backBtn: "Back", historyTitle: "My Links", logoutBtn: "Logout", createNewBtn: "+ Create Share", typeCol: "Type", expiresCol: "Expires", viewsCol: "Views", typeText: "📝 Text", typeCode: "💻 Code", 
             time10m: "10 Minutes", time30m: "30 Minutes", time1h: "1 Hour", time6h: "6 Hours", time12h: "12 Hours", 
             time1d: "1 Day", time3d: "3 Days", time1w: "1 Week", time2w: "2 Weeks", 
             time1mo: "1 Month", time3mo: "3 Months", time6mo: "6 Months", time1y: "1 Year", timeForever: "∞ Forever", timeCustom: "Custom Date...",
-            saveShareBtn: "Create Link", successTitle: "Link Ready!", copyBtn: "Copy", expiresLabel: "Expires:", createAnotherBtn: "Create Another", sharedContentTitle: "Shared Content", createOwnBtn: "Create New Share", editBtn: "Edit", cancelBtn: "Cancel", saveBtn: "Save", linkExpiredTitle: "Link Expired", linkExpiredMsg: "This content is no longer available.", msgExpired: "Link Expired", msgUpdateSuccess: "Updated!", msgRenewSuccess: "Extended!", msgNotOwner: "Not authorized", processing: "Processing...", msgNoContent: "Content empty!", aiRefine: "Refine", aiExplain: "Explain", noData: "No history found.", msgInvalidDate: "Invalid expiration date!", dashboardMenu: "Dashboard", logoutMenu: "Logout" },
+            saveShareBtn: "Create Link", successTitle: "Link Ready!", copyBtn: "Copy", expiresLabel: "Expires:", createAnotherBtn: "Create Another", sharedContentTitle: "Shared Content", createOwnBtn: "Create New Share", editBtn: "Edit", cancelBtn: "Cancel", saveBtn: "Save", linkExpiredTitle: "Link Expired", linkExpiredMsg: "This content is no longer available.", msgExpired: "Link Expired", msgUpdateSuccess: "Updated!", msgRenewSuccess: "Extended!", msgNotOwner: "Not authorized", processing: "Processing...", msgNoContent: "Content empty!", aiRefine: "Refine", aiExplain: "Explain", noData: "No history found.", msgInvalidDate: "Invalid expiration date!", limitTitle: "Limit Exceeded", limitMsg: "Content is too long (Max 200,000 chars).", dashboardMenu: "Dashboard", logoutMenu: "Logout" },
             
             vi: { loginTitle: "Đăng nhập", loginSubtitle: "Nhập email để vào Dashboard", sendCodeBtn: "Gửi Mã", verifyBtn: "Vào", backBtn: "Quay lại", historyTitle: "Link Của Tôi", logoutBtn: "Thoát", createNewBtn: "+ Tạo Link Mới", typeCol: "Loại", expiresCol: "Hết hạn", viewsCol: "Xem", typeText: "📝 Văn bản", typeCode: "💻 Code", 
             time10m: "10 Phút", time30m: "30 Phút", time1h: "1 Giờ", time6h: "6 Giờ", time12h: "12 Giờ", 
             time1d: "1 Ngày", time3d: "3 Ngày", time1w: "1 Tuần", time2w: "2 Tuần", 
             time1mo: "1 Tháng", time3mo: "3 Tháng", time6mo: "6 Tháng", time1y: "1 Năm", timeForever: "∞ Vĩnh viễn", timeCustom: "Tùy chọn ngày...",
-            saveShareBtn: "Tạo Link", successTitle: "Đã Tạo Link!", copyBtn: "Sao Chép", expiresLabel: "Hết hạn:", createAnotherBtn: "Tạo Tiếp", sharedContentTitle: "Nội Dung", createOwnBtn: "Tạo Link Mới", editBtn: "Sửa", cancelBtn: "Hủy", saveBtn: "Lưu", linkExpiredTitle: "Link Hết Hạn", linkExpiredMsg: "Nội dung này không còn khả dụng.", msgExpired: "Link đã hết hạn", msgUpdateSuccess: "Đã cập nhật!", msgRenewSuccess: "Đã gia hạn!", msgNotOwner: "Không có quyền", processing: "Đang xử lý...", msgNoContent: "Nội dung trống!", aiRefine: "Sửa lỗi", aiExplain: "Giải thích", noData: "Chưa có dữ liệu.", msgInvalidDate: "Ngày hết hạn không hợp lệ!", dashboardMenu: "Bảng điều khiển", logoutMenu: "Đăng xuất" }
+            saveShareBtn: "Tạo Link", successTitle: "Đã Tạo Link!", copyBtn: "Sao Chép", expiresLabel: "Hết hạn:", createAnotherBtn: "Tạo Tiếp", sharedContentTitle: "Nội Dung", createOwnBtn: "Tạo Link Mới", editBtn: "Sửa", cancelBtn: "Hủy", saveBtn: "Lưu", linkExpiredTitle: "Link Hết Hạn", linkExpiredMsg: "Nội dung này không còn khả dụng.", msgExpired: "Link đã hết hạn", msgUpdateSuccess: "Đã cập nhật!", msgRenewSuccess: "Đã gia hạn!", msgNotOwner: "Không có quyền", processing: "Đang xử lý...", msgNoContent: "Nội dung trống!", aiRefine: "Sửa lỗi", aiExplain: "Giải thích", noData: "Chưa có dữ liệu.", msgInvalidDate: "Ngày hết hạn không hợp lệ!", limitTitle: "Quá Giới Hạn", limitMsg: "Nội dung quá dài (Tối đa 200,000 ký tự).", dashboardMenu: "Bảng điều khiển", logoutMenu: "Đăng xuất" }
         };
 
         const state = { user: localStorage.getItem('ls_user'), lang: localStorage.getItem('ls_lang') || 'en', currentEmail: '', currentShareId: null, originalContent: '' };
 
-        // --- THEME & SETTINGS ---
         const theme = {
             init: () => {
                 const t = localStorage.getItem('ls_theme') || 'dark';
@@ -434,27 +462,22 @@
             }
         };
 
-        // --- GEMINI AI ---
         const gemini = {
             getKey: () => apiKey || localStorage.getItem('ls_gemini_key'),
-            
             call: async (prompt) => {
                 const key = gemini.getKey();
                 if (!key) {
                     settings.open();
                     throw new Error("Please enter your Gemini API Key in Settings.");
                 }
-                
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`;
                 const payload = { contents: [{ parts: [{ text: prompt }] }] };
-                
                 try {
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    
                     const data = await response.json();
                     if (data.error) throw new Error(data.error.message);
                     return data.candidates[0].content.parts[0].text;
@@ -462,19 +485,14 @@
                     throw e;
                 }
             },
-
             enhance: async () => {
                 const content = document.getElementById('textContent').value;
                 if (!content.trim()) return alert("Please enter some content first.");
-                
-                // Determine context based on toggle state
                 const isCode = editor.isCodeMode['create'];
-                
                 app.toggleLoading(true);
                 const prompt = isCode 
                     ? `Review this code, fix bugs, format it, and improve logic if needed. Output ONLY the code:\n\n${content}`
                     : `Proofread and improve this text for clarity and professionalism. Output ONLY the improved text:\n\n${content}`;
-                
                 try {
                     const result = await gemini.call(prompt);
                     gemini.showResult(result, true);
@@ -484,15 +502,12 @@
                     app.toggleLoading(false);
                 }
             },
-
             explain: async () => {
                 const content = state.originalContent;
                 const isCode = editor.isCodeMode['view'];
                 const type = isCode ? 'code' : 'text';
-                
                 app.toggleLoading(true);
                 const prompt = `Explain the following ${type} concisely and clearly:\n\n${content}`;
-                
                 try {
                     const result = await gemini.call(prompt);
                     gemini.showResult(result, false);
@@ -502,13 +517,11 @@
                     app.toggleLoading(false);
                 }
             },
-
             showResult: (text, allowApply) => {
                 const modal = document.getElementById('modalAI');
                 const contentDiv = document.getElementById('aiResultContent');
                 const btnApply = document.getElementById('btnApplyAI');
                 contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text.replace(/\n/g, '<br>');
-                
                 if (allowApply) {
                     btnApply.style.display = 'block';
                     btnApply.onclick = () => {
@@ -523,22 +536,27 @@
             }
         };
 
-        // --- EDITOR ---
         const editor = {
             isCodeMode: { create: false, view: false },
             init: () => {
-                editor.attachEvents('textContent', 'createLineNumbers');
+                editor.attachEvents('textContent', 'createLineNumbers', 'charCounter');
                 editor.attachEvents('editContent', 'editLineNumbers');
-                editor.attachEvents('viewContent', 'viewLineNumbers', true);
+                editor.attachEvents('viewContent', 'viewLineNumbers', null, true);
             },
-            attachEvents: (txtId, lineId, isDiv = false) => {
+            attachEvents: (txtId, lineId, counterId, isDiv = false) => {
                 const txt = document.getElementById(txtId);
                 const lines = document.getElementById(lineId);
+                const counter = counterId ? document.getElementById(counterId) : null;
+                
                 if (!isDiv) {
-                    txt.addEventListener('input', () => editor.updateLines(txt, lines));
+                    const updateAll = () => {
+                        editor.updateLines(txt, lines);
+                        if (counter) editor.updateCounter(txt, counter);
+                    };
+                    txt.addEventListener('input', updateAll);
                     txt.addEventListener('scroll', () => lines.scrollTop = txt.scrollTop);
                     txt.addEventListener('keydown', (e) => {
-                        if (e.key == 'Tab') { e.preventDefault(); const s = txt.selectionStart; txt.value = txt.value.substring(0,s) + "  " + txt.value.substring(txt.selectionEnd); txt.selectionStart = txt.selectionEnd = s+2; editor.updateLines(txt, lines); }
+                        if (e.key == 'Tab') { e.preventDefault(); const s = txt.selectionStart; txt.value = txt.value.substring(0,s) + "  " + txt.value.substring(txt.selectionEnd); txt.selectionStart = txt.selectionEnd = s+2; updateAll(); }
                     });
                 }
             },
@@ -546,6 +564,12 @@
                 const val = ele.value || ele.innerText || "";
                 const count = val.split('\n').length;
                 lineEle.innerHTML = Array(count).fill(0).map((_, i) => `<div>${i + 1}</div>`).join('');
+            },
+            updateCounter: (ele, counterEle) => {
+                const len = ele.value.length;
+                counterEle.innerText = `${len} / ${MAX_CHARS}`;
+                if (len > MAX_CHARS) counterEle.classList.add('limit-reached');
+                else counterEle.classList.remove('limit-reached');
             },
             toggleMode: (ctx) => {
                 const wrapper = document.getElementById(ctx + 'EditorWrapper');
@@ -572,16 +596,10 @@
                 document.getElementById('langSelect').value = state.lang; 
                 app.applyLang(); 
                 editor.init();
-                
                 const p = new URLSearchParams(window.location.search); 
                 const id = p.get('id'); 
-                
-                if (id) viewer.load(id); 
-                else app.resetCreate(); // Default to create
-                
+                if (id) viewer.load(id); else app.resetCreate();
                 app.updateUserUI();
-
-                // Close dropdown on outside click
                 document.addEventListener('click', (e) => {
                     const dropdown = document.getElementById('userDropdown');
                     const btn = document.getElementById('btnUser');
@@ -590,88 +608,46 @@
                     }
                 });
             },
-            
             setLang: (l) => { state.lang = l; localStorage.setItem('ls_lang', l); app.applyLang(); },
-            
-            applyLang: () => { 
-                const t = TRANSLATIONS[state.lang]; 
-                document.querySelectorAll('[data-i18n]').forEach(el => { 
-                    const k = el.getAttribute('data-i18n'); if (t[k]) el.innerText = t[k]; 
-                }); 
-            },
-            
+            applyLang: () => { const t = TRANSLATIONS[state.lang]; document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (t[k]) el.innerText = t[k]; }); },
             t: (k) => TRANSLATIONS[state.lang][k] || k,
-
-            updateUserUI: () => {
+            updateUserUI: () => { 
                 const btnUser = document.getElementById('btnUser');
                 if (state.user) {
-                    btnUser.style.color = 'var(--success)';
-                    btnUser.style.borderColor = 'var(--success)';
+                    btnUser.style.color = 'var(--success)'; btnUser.style.borderColor = 'var(--success)';
                 } else {
-                    btnUser.style.color = 'var(--text)';
-                    btnUser.style.borderColor = 'var(--border)';
+                    btnUser.style.color = 'var(--text)'; btnUser.style.borderColor = 'var(--border)';
                 }
-                // Also hide dropdown if logged out
                 if (!state.user) document.getElementById('userDropdown').classList.add('hidden');
             },
-
             toggleUserMenu: (e) => {
-                if (!state.user) {
-                    app.showAuth();
-                } else {
+                if (!state.user) app.showAuth();
+                else {
                     const dropdown = document.getElementById('userDropdown');
                     dropdown.classList.toggle('hidden');
                     e.stopPropagation();
                 }
             },
-
             hideAll: () => document.querySelectorAll('.view-container').forEach(el => el.classList.add('hidden')),
-            
-            goHome: () => {
-                // Clear URL params without reload
-                try {
-                    window.history.pushState({}, document.title, window.location.pathname);
-                } catch (e) {
-                    console.log("History API not supported in this environment");
-                }
-                app.resetCreate();
-            },
-
-            // --- NAVIGATION ---
+            goHome: () => { try { window.history.pushState({}, document.title, window.location.pathname); } catch (e) {} app.resetCreate(); },
             showAuth: () => { app.hideAll(); document.getElementById('view-auth').classList.remove('hidden'); document.getElementById('inputEmail').focus(); },
-            
-            showDashboard: () => { 
-                app.hideAll(); 
-                document.getElementById('view-dashboard').classList.remove('hidden'); 
-                document.getElementById('userDropdown').classList.add('hidden');
-                dashboard.load(); // Reload data explicitly
-            },
-            
-            resetCreate: () => {
-                try {
-                    window.history.pushState({}, document.title, window.location.pathname);
-                } catch (e) {
-                    console.log("History API not supported in this environment");
-                }
-                
-                app.hideAll();
-                document.getElementById('view-create').classList.remove('hidden');
-                
-                // Reset inputs
-                document.getElementById('textContent').value = '';
+            showDashboard: () => { app.hideAll(); document.getElementById('view-dashboard').classList.remove('hidden'); document.getElementById('userDropdown').classList.add('hidden'); dashboard.load(); },
+            resetCreate: () => { 
+                try { window.history.pushState({}, document.title, window.location.pathname); } catch (e) {} 
+                app.hideAll(); document.getElementById('view-create').classList.remove('hidden'); 
+                document.getElementById('textContent').value = ''; 
                 document.getElementById('shareDuration').value = '10';
                 document.getElementById('customDateInput').value = '';
                 document.getElementById('customDateContainer').classList.add('hidden');
                 document.getElementById('createLineNumbers').innerHTML = '1'; 
+                document.getElementById('charCounter').innerText = `0 / ${MAX_CHARS}`;
+                document.getElementById('charCounter').classList.remove('limit-reached');
                 document.getElementById('modalExpired').classList.add('hidden'); 
-                
-                // Reset editor visual state
                 const wrapper = document.getElementById('createEditorWrapper');
                 const btn = document.getElementById('btnToggleEditorCreate');
                 wrapper.classList.remove('code-mode');
                 btn.style.background = 'transparent'; btn.style.color = 'var(--text)';
                 editor.isCodeMode['create'] = false;
-
                 document.getElementById('textContent').focus(); 
             },
             handleDurationChange: (val) => {
@@ -679,7 +655,6 @@
                 const dateInput = document.getElementById('customDateInput');
                 if (val === 'custom') {
                     container.classList.remove('hidden');
-                    // Set min datetime to now
                     const now = new Date();
                     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                     dateInput.min = now.toISOString().slice(0,16);
@@ -695,21 +670,14 @@
         const api = async (p) => {
             if (API_URL.includes("PLACEHOLDER")) { alert("API URL Missing!"); return { success: false }; }
             app.toggleLoading(true); p.lang = state.lang;
-            try { const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(p) }); return await r.json(); } 
-            catch (e) { alert("Error: " + e); return { success: false }; } 
-            finally { app.toggleLoading(false); }
+            try { const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(p) }); return await r.json(); } catch (e) { alert("Error: " + e); return { success: false }; } finally { app.toggleLoading(false); }
         };
 
         const auth = {
             sendOtp: async () => { const e = document.getElementById('inputEmail').value.trim(); if (!e) return; state.currentEmail = e; const r = await api({ action: 'sendOtp', email: e }); if (r.success) { document.getElementById('step-email').classList.add('hidden'); document.getElementById('step-otp').classList.remove('hidden'); } else alert(r.message); },
             verifyOtp: async () => { const o = document.getElementById('inputOtp').value.trim(); const r = await api({ action: 'verifyOtp', email: state.currentEmail, otp: o }); if (r.success) { state.user = r.token; localStorage.setItem('ls_user', state.user); app.updateUserUI(); app.showDashboard(); } else alert(r.message); },
             reset: () => { document.getElementById('step-email').classList.remove('hidden'); document.getElementById('step-otp').classList.add('hidden'); },
-            logout: () => { 
-                localStorage.removeItem('ls_user'); 
-                state.user = null; 
-                app.updateUserUI(); 
-                app.resetCreate(); 
-            }
+            logout: () => { localStorage.removeItem('ls_user'); state.user = null; app.updateUserUI(); app.resetCreate(); }
         };
 
         const sharing = {
@@ -717,30 +685,25 @@
                 const c = document.getElementById('textContent').value; 
                 if (!c.trim()) return alert(app.t('msgNoContent')); 
                 
+                if (c.length > MAX_CHARS) {
+                    document.getElementById('modalLimit').classList.remove('hidden');
+                    return;
+                }
+
                 let duration = document.getElementById('shareDuration').value;
                 
                 if (duration === 'custom') {
                     const dateVal = document.getElementById('customDateInput').value;
                     if (!dateVal) return alert(app.t('msgInvalidDate'));
-                    
                     const targetDate = new Date(dateVal);
                     const now = new Date();
                     const diffMs = targetDate - now;
-                    
                     if (diffMs <= 0) return alert(app.t('msgInvalidDate'));
                     duration = Math.ceil(diffMs / 60000);
                 }
 
-                const r = await api({ 
-                    action: 'upload', 
-                    type: 'text', 
-                    content: c, 
-                    duration: duration, 
-                    owner: state.user || 'guest' 
-                }); 
-                
-                if (r.success) sharing.displayResult(r.id, r.expires); 
-                else alert(r.message); 
+                const r = await api({ action: 'upload', type: 'text', content: c, duration: duration, owner: state.user || 'guest' }); 
+                if (r.success) sharing.displayResult(r.id, r.expires); else alert(r.message); 
             },
             displayResult: (id, exp) => { const u = window.location.href.split('?')[0] + '?id=' + id; document.getElementById('shareLink').value = u; document.getElementById('expireDisplay').innerText = new Date(exp).toLocaleString(state.lang); document.getElementById('qrcode').innerHTML = ""; new QRCode(document.getElementById("qrcode"), { text: u, width: 128, height: 128 }); app.showResult(); },
             copyLink: () => { const c = document.getElementById("shareLink"); c.select(); navigator.clipboard.writeText(c.value); alert("Copied!"); }
@@ -752,34 +715,23 @@
                 const tb = document.querySelector('#historyTable tbody'); 
                 tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px">${app.t('processing')}</td></tr>`; 
                 const r = await api({ action: 'getHistory', email: state.user }); 
-                
                 if (r.success) {
-                    if (r.history && r.history.length > 0) { 
+                    if (r.history.length > 0) { 
                         tb.innerHTML = "";
                         r.history.forEach(i => { 
-                            const isExp = new Date() > new Date(i.expires);
-                            const statusClass = isExp ? 'status-expired' : 'status-active';
-                            const statusText = isExp ? 'Expired' : 'Active';
+                            const isExp = new Date() > new Date(i.expires); 
                             const tr = document.createElement('tr'); 
-                            tr.innerHTML = `<td><a href="?id=${i.id}" target="_blank" class="id-cell">${i.id.substring(0,6)}..</a></td><td>${i.type}</td><td>${new Date(i.expires).toLocaleDateString()}</td><td>${i.views}</td><td><span class="status-badge ${statusClass}">${statusText}</span></td>`; 
+                            tr.innerHTML = `<td><a href="?id=${i.id}" target="_blank" class="id-cell">${i.id.substring(0,6)}..</a></td><td>${i.type}</td><td>${new Date(i.expires).toLocaleDateString()}</td><td>${i.views}</td><td><span class="status-badge ${isExp ? 'status-expired' : 'status-active'}">${isExp ? 'Expired' : 'Active'}</span></td>`; 
                             tb.appendChild(tr); 
                         }); 
-                    } else {
-                        tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--text-dim);padding:30px'>${app.t('noData')}</td></tr>`;
-                    }
-                } else {
-                    tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--danger);padding:30px'>Error loading data</td></tr>`;
-                }
+                    } else { tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--text-dim);padding:30px'>${app.t('noData')}</td></tr>`; }
+                } else { tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--danger);padding:30px'>${r.message}</td></tr>`; }
             }
         };
 
         const viewer = {
             load: async (id) => { 
-                app.showViewer(); 
-                state.currentShareId = id; 
-                document.getElementById('viewContent').innerHTML = "";
-                document.getElementById('ownerRenewSection').classList.add('hidden');
-                document.getElementById('btnEdit').classList.add('hidden');
+                app.showViewer(); state.currentShareId = id; document.getElementById('viewContent').innerHTML = ""; document.getElementById('ownerRenewSection').classList.add('hidden'); document.getElementById('btnEdit').classList.add('hidden');
                 
                 const wrapper = document.getElementById('viewEditorWrapper');
                 const btn = document.getElementById('btnToggleEditorView');
@@ -788,72 +740,36 @@
                 editor.isCodeMode['view'] = false;
 
                 const r = await api({ action: 'getData', id: id, email: state.user }); 
-                
                 if (r.success) { 
-                    state.originalContent = r.content; 
-                    document.getElementById('viewMetaDate').innerText = `Created: ${new Date(r.created).toLocaleDateString()}`; 
-                    viewer.renderContent(r.content); 
-                    editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
-                    
+                    state.originalContent = r.content; document.getElementById('viewMetaDate').innerText = `Created: ${new Date(r.created).toLocaleDateString()}`; viewer.renderContent(r.content); editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
                     const isOwner = (state.user && state.user === r.owner);
-                    
-                    if (r.isExpired) {
-                        if (isOwner) {
-                            document.getElementById('ownerRenewSection').classList.remove('hidden');
-                            document.getElementById('viewOwnerBadge').classList.remove('hidden');
-                        } else {
-                            document.getElementById('modalExpired').classList.remove('hidden');
-                        }
-                    } else {
-                        if (isOwner) {
-                            document.getElementById('viewOwnerBadge').classList.remove('hidden');
-                            document.getElementById('btnEdit').classList.remove('hidden'); 
-                        }
-                    }
-                } else {
-                    document.getElementById('modalExpired').classList.remove('hidden');
-                }
+                    if (r.isExpired) { if (isOwner) { document.getElementById('ownerRenewSection').classList.remove('hidden'); document.getElementById('viewOwnerBadge').classList.remove('hidden'); } else document.getElementById('modalExpired').classList.remove('hidden'); } 
+                    else if (isOwner) { document.getElementById('viewOwnerBadge').classList.remove('hidden'); document.getElementById('btnEdit').classList.remove('hidden'); }
+                } else document.getElementById('modalExpired').classList.remove('hidden');
             },
             renderContent: (t) => { document.getElementById('viewContent').innerText = t; },
             enableEdit: () => { 
-                document.getElementById('viewEditorWrapper').classList.add('hidden'); 
-                document.getElementById('editEditorWrapper').classList.remove('hidden'); 
-                document.getElementById('editControls').classList.remove('hidden'); 
-                document.getElementById('btnEdit').classList.add('hidden'); 
-                const area = document.getElementById('editContent'); 
-                area.value = state.originalContent; 
-                
+                document.getElementById('viewEditorWrapper').classList.add('hidden'); document.getElementById('editEditorWrapper').classList.remove('hidden'); document.getElementById('editControls').classList.remove('hidden'); document.getElementById('btnEdit').classList.add('hidden'); const area = document.getElementById('editContent'); area.value = state.originalContent; 
                 const editWrapper = document.getElementById('editEditorWrapper');
-                if (editor.isCodeMode['view']) editWrapper.classList.add('code-mode');
-                else editWrapper.classList.remove('code-mode');
-
-                editor.updateLines(area, document.getElementById('editLineNumbers')); 
-                area.focus(); 
+                if (editor.isCodeMode['view']) editWrapper.classList.add('code-mode'); else editWrapper.classList.remove('code-mode');
+                editor.updateLines(area, document.getElementById('editLineNumbers')); area.focus(); 
             },
             cancelEdit: () => { document.getElementById('viewEditorWrapper').classList.remove('hidden'); document.getElementById('editEditorWrapper').classList.add('hidden'); document.getElementById('editControls').classList.add('hidden'); document.getElementById('btnEdit').classList.remove('hidden'); },
             saveEdit: async () => { const n = document.getElementById('editContent').value; const r = await api({ action: 'update', id: state.currentShareId, email: state.user, content: n }); if (r.success) { alert(app.t('msgUpdateSuccess')); state.originalContent = n; viewer.renderContent(n); viewer.cancelEdit(); } else alert(r.message); },
+            
             renew: async () => {
                 let dur = document.getElementById('renewDuration').value;
-                
                 if (dur === 'custom') {
                     const dateVal = document.getElementById('renewCustomDateInput').value;
                     if (!dateVal) return alert(app.t('msgInvalidDate'));
-                    
                     const targetDate = new Date(dateVal);
                     const now = new Date();
                     const diffMs = targetDate - now;
-                    
                     if (diffMs <= 0) return alert(app.t('msgInvalidDate'));
-                    
-                    // Convert ms to minutes
                     dur = Math.ceil(diffMs / 60000);
                 }
-
                 const r = await api({ action: 'renew', id: state.currentShareId, email: state.user, duration: dur });
-                if (r.success) {
-                    alert(app.t('msgRenewSuccess'));
-                    window.location.reload();
-                } else alert(r.message);
+                if (r.success) { alert(app.t('msgRenewSuccess')); window.location.reload(); } else alert(r.message);
             },
             handleRenewChange: (val) => {
                 const dateInput = document.getElementById('renewCustomDateInput');
