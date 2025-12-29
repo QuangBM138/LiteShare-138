@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
+            /* Dark Theme (Default) */
             --bg: #0f172a; --surface: #1e293b; --surface-2: #334155; --primary: #3b82f6; 
             --text: #f8fafc; --text-dim: #94a3b8; --border: #334155; 
             --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
@@ -16,6 +17,7 @@
         }
         
         [data-theme="light"] {
+            /* Light Theme */
             --bg: #f1f5f9; --surface: #ffffff; --surface-2: #e2e8f0; --primary: #2563eb; 
             --text: #0f172a; --text-dim: #64748b; --border: #cbd5e1;
         }
@@ -336,9 +338,15 @@
                     <span style="display:flex; align-items:center; gap:8px"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <strong data-i18n="msgExpired">This link has expired</strong></span>
                     <button class="btn" style="padding: 6px 12px; font-size: 0.8rem; background: var(--surface); color: var(--text); border: 1px solid var(--border);" onclick="document.getElementById('renewForm').classList.toggle('hidden')">Renew</button>
                 </div>
-                <div id="renewForm" class="renew-form hidden">
-                    <select id="renewDuration"><option value="60">Extend 1 Hour</option><option value="1440">Extend 1 Day</option><option value="10080">Extend 1 Week</option></select>
+                <div id="renewForm" class="renew-form hidden" style="flex-wrap: wrap;">
+                    <select id="renewDuration" onchange="viewer.handleRenewChange(this.value)" style="flex:1; min-width: 150px;">
+                        <option value="60">Extend 1 Hour</option>
+                        <option value="1440">Extend 1 Day</option>
+                        <option value="10080">Extend 1 Week</option>
+                        <option value="custom" data-i18n="timeCustom">Custom Date...</option>
+                    </select>
                     <button class="btn" onclick="viewer.renew()" data-i18n="saveBtn">Save</button>
+                    <input type="datetime-local" id="renewCustomDateInput" class="hidden" style="width: 100%; margin-top: 10px;">
                 </div>
             </div>
 
@@ -640,7 +648,6 @@
             },
             
             resetCreate: () => {
-                // Clear URL params
                 try {
                     window.history.pushState({}, document.title, window.location.pathname);
                 } catch (e) {
@@ -712,7 +719,6 @@
                 
                 let duration = document.getElementById('shareDuration').value;
                 
-                // Handle Custom Duration
                 if (duration === 'custom') {
                     const dateVal = document.getElementById('customDateInput').value;
                     if (!dateVal) return alert(app.t('msgInvalidDate'));
@@ -722,14 +728,12 @@
                     const diffMs = targetDate - now;
                     
                     if (diffMs <= 0) return alert(app.t('msgInvalidDate'));
-                    
-                    // Convert ms to minutes
                     duration = Math.ceil(diffMs / 60000);
                 }
 
                 const r = await api({ 
                     action: 'upload', 
-                    type: 'text', // Always text type, format handles display
+                    type: 'text', 
                     content: c, 
                     duration: duration, 
                     owner: state.user || 'guest' 
@@ -746,14 +750,12 @@
             load: async () => { 
                 if (!state.user) return; 
                 const tb = document.querySelector('#historyTable tbody'); 
-                // Clear table and show Loading row immediately
-                tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px">${app.t('processing')}</td></tr>`;
-                
+                tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px">${app.t('processing')}</td></tr>`; 
                 const r = await api({ action: 'getHistory', email: state.user }); 
-                tb.innerHTML = ""; // Clear loading
                 
                 if (r.success) {
                     if (r.history && r.history.length > 0) { 
+                        tb.innerHTML = "";
                         r.history.forEach(i => { 
                             const isExp = new Date() > new Date(i.expires);
                             const statusClass = isExp ? 'status-expired' : 'status-active';
@@ -779,11 +781,15 @@
                 document.getElementById('ownerRenewSection').classList.add('hidden');
                 document.getElementById('btnEdit').classList.add('hidden');
                 
-                // Pass user email to check ownership server-side
+                const wrapper = document.getElementById('viewEditorWrapper');
+                const btn = document.getElementById('btnToggleEditorView');
+                wrapper.classList.remove('code-mode');
+                btn.style.background = 'transparent'; btn.style.color = 'var(--text)';
+                editor.isCodeMode['view'] = false;
+
                 const r = await api({ action: 'getData', id: id, email: state.user }); 
                 
                 if (r.success) { 
-                    // Render content
                     state.originalContent = r.content; 
                     document.getElementById('viewMetaDate').innerText = `Created: ${new Date(r.created).toLocaleDateString()}`; 
                     viewer.renderContent(r.content); 
@@ -793,39 +799,72 @@
                     
                     if (r.isExpired) {
                         if (isOwner) {
-                            // Owner sees expired content + renew option
                             document.getElementById('ownerRenewSection').classList.remove('hidden');
                             document.getElementById('viewOwnerBadge').classList.remove('hidden');
                         } else {
-                            // Guest sees modal
                             document.getElementById('modalExpired').classList.remove('hidden');
                         }
                     } else {
-                        // Not expired
                         if (isOwner) {
                             document.getElementById('viewOwnerBadge').classList.remove('hidden');
                             document.getElementById('btnEdit').classList.remove('hidden'); 
                         }
                     }
                 } else {
-                    // Logic failure or hard error
                     document.getElementById('modalExpired').classList.remove('hidden');
                 }
             },
             renderContent: (t) => { document.getElementById('viewContent').innerText = t; },
             enableEdit: () => { 
-                document.getElementById('viewEditorWrapper').classList.add('hidden'); document.getElementById('editEditorWrapper').classList.remove('hidden'); document.getElementById('editControls').classList.remove('hidden'); document.getElementById('btnEdit').classList.add('hidden'); 
-                const area = document.getElementById('editContent'); area.value = state.originalContent; editor.updateLines(area, document.getElementById('editLineNumbers')); area.focus(); 
+                document.getElementById('viewEditorWrapper').classList.add('hidden'); 
+                document.getElementById('editEditorWrapper').classList.remove('hidden'); 
+                document.getElementById('editControls').classList.remove('hidden'); 
+                document.getElementById('btnEdit').classList.add('hidden'); 
+                const area = document.getElementById('editContent'); 
+                area.value = state.originalContent; 
+                
+                const editWrapper = document.getElementById('editEditorWrapper');
+                if (editor.isCodeMode['view']) editWrapper.classList.add('code-mode');
+                else editWrapper.classList.remove('code-mode');
+
+                editor.updateLines(area, document.getElementById('editLineNumbers')); 
+                area.focus(); 
             },
             cancelEdit: () => { document.getElementById('viewEditorWrapper').classList.remove('hidden'); document.getElementById('editEditorWrapper').classList.add('hidden'); document.getElementById('editControls').classList.add('hidden'); document.getElementById('btnEdit').classList.remove('hidden'); },
             saveEdit: async () => { const n = document.getElementById('editContent').value; const r = await api({ action: 'update', id: state.currentShareId, email: state.user, content: n }); if (r.success) { alert(app.t('msgUpdateSuccess')); state.originalContent = n; viewer.renderContent(n); viewer.cancelEdit(); } else alert(r.message); },
             renew: async () => {
-                const dur = document.getElementById('renewDuration').value;
+                let dur = document.getElementById('renewDuration').value;
+                
+                if (dur === 'custom') {
+                    const dateVal = document.getElementById('renewCustomDateInput').value;
+                    if (!dateVal) return alert(app.t('msgInvalidDate'));
+                    
+                    const targetDate = new Date(dateVal);
+                    const now = new Date();
+                    const diffMs = targetDate - now;
+                    
+                    if (diffMs <= 0) return alert(app.t('msgInvalidDate'));
+                    
+                    // Convert ms to minutes
+                    dur = Math.ceil(diffMs / 60000);
+                }
+
                 const r = await api({ action: 'renew', id: state.currentShareId, email: state.user, duration: dur });
                 if (r.success) {
                     alert(app.t('msgRenewSuccess'));
                     window.location.reload();
                 } else alert(r.message);
+            },
+            handleRenewChange: (val) => {
+                const dateInput = document.getElementById('renewCustomDateInput');
+                if (val === 'custom') {
+                    dateInput.classList.remove('hidden');
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    dateInput.min = now.toISOString().slice(0,16);
+                } else {
+                    dateInput.classList.add('hidden');
+                }
             }
         };
 
