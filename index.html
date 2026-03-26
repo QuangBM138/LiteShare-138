@@ -317,8 +317,9 @@
                         <option value="129600" data-i18n="time3mo">3 Months</option>
                         <option value="259200" data-i18n="time6mo">6 Months</option>
                         <option value="525600" data-i18n="time1y">1 Year</option>
-                        <option value="52560000" data-i18n="timeForever">∞ Forever</option>
-                        <option value="custom" data-i18n="timeCustom">Custom Date...</option>
+                        <!-- 2 tuỳ chọn dưới đây bị ẩn nếu chưa đăng nhập -->
+                        <option value="52560000" data-i18n="timeForever" class="auth-required">∞ Forever</option>
+                        <option value="custom" data-i18n="timeCustom" class="auth-required">Custom Date...</option>
                     </select>
                 </div>
                 
@@ -415,6 +416,7 @@
     </main>
 
     <script>
+        // LƯU Ý: Giữ nguyên PLACEHOLDER_API_URL để GitHub Actions chạy tự động thay thế
         const API_URL = "PLACEHOLDER_API_URL"; 
         const apiKey = ""; 
         const MAX_CHARS = 200000;
@@ -611,14 +613,38 @@
             setLang: (l) => { state.lang = l; localStorage.setItem('ls_lang', l); app.applyLang(); },
             applyLang: () => { const t = TRANSLATIONS[state.lang]; document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (t[k]) el.innerText = t[k]; }); },
             t: (k) => TRANSLATIONS[state.lang][k] || k,
+            
+            // XỬ LÝ ẨN HIỆN OPTIONS & GIAO DIỆN KHI ĐĂNG NHẬP
             updateUserUI: () => { 
                 const btnUser = document.getElementById('btnUser');
+                const authOptions = document.querySelectorAll('.auth-required'); // Lấy các option bị giới hạn
+
                 if (state.user) {
                     btnUser.style.color = 'var(--success)'; btnUser.style.borderColor = 'var(--success)';
+                    // Hiển thị lại các lựa chọn Custom và Forever
+                    authOptions.forEach(opt => {
+                        opt.style.display = '';
+                        opt.disabled = false;
+                        opt.hidden = false;
+                    });
                 } else {
                     btnUser.style.color = 'var(--text)'; btnUser.style.borderColor = 'var(--border)';
+                    document.getElementById('userDropdown').classList.add('hidden');
+                    
+                    // Ẩn và vô hiệu hóa các lựa chọn
+                    authOptions.forEach(opt => {
+                        opt.style.display = 'none';
+                        opt.disabled = true;
+                        opt.hidden = true;
+                    });
+                    
+                    // An toàn: Nếu người dùng vừa đăng xuất mà khung giờ đang ở Custom hoặc Forever thì trả về 10 phút
+                    const durationSelect = document.getElementById('shareDuration');
+                    if (durationSelect.value === '52560000' || durationSelect.value === 'custom') {
+                        durationSelect.value = '10';
+                        app.handleDurationChange('10');
+                    }
                 }
-                if (!state.user) document.getElementById('userDropdown').classList.add('hidden');
             },
             toggleUserMenu: (e) => {
                 if (!state.user) app.showAuth();
@@ -668,8 +694,13 @@
         };
 
         const api = async (p) => {
-            if (API_URL.includes("PLACEHOLDER")) { alert("API URL Missing!"); return { success: false }; }
+            if (API_URL.includes("PLACEHOLDER")) { alert("API URL Missing! (Nếu bạn đang test local, hãy thay PLACEHOLDER bằng URL Script của bạn)"); return { success: false }; }
             app.toggleLoading(true); p.lang = state.lang;
+            // Gắn token (là email trước đây) vào mọi request nếu có
+            if (state.user) {
+                p.email = state.user; // Token của bản cập nhật Backend mới
+                p.owner = state.user; 
+            }
             try { const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(p) }); return await r.json(); } catch (e) { alert("Error: " + e); return { success: false }; } finally { app.toggleLoading(false); }
         };
 
@@ -702,7 +733,8 @@
                     duration = Math.ceil(diffMs / 60000);
                 }
 
-                const r = await api({ action: 'upload', type: 'text', content: c, duration: duration, owner: state.user || 'guest' }); 
+                // API sẽ dùng p.owner (đã truyền token vào ở hàm api())
+                const r = await api({ action: 'upload', type: 'text', content: c, duration: duration }); 
                 if (r.success) sharing.displayResult(r.id, r.expires); else alert(r.message); 
             },
             displayResult: (id, exp) => { const u = window.location.href.split('?')[0] + '?id=' + id; document.getElementById('shareLink').value = u; document.getElementById('expireDisplay').innerText = new Date(exp).toLocaleString(state.lang); document.getElementById('qrcode').innerHTML = ""; new QRCode(document.getElementById("qrcode"), { text: u, width: 128, height: 128 }); app.showResult(); },
@@ -714,7 +746,7 @@
                 if (!state.user) return; 
                 const tb = document.querySelector('#historyTable tbody'); 
                 tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px">${app.t('processing')}</td></tr>`; 
-                const r = await api({ action: 'getHistory', email: state.user }); 
+                const r = await api({ action: 'getHistory' }); 
                 if (r.success) {
                     if (r.history.length > 0) { 
                         tb.innerHTML = "";
@@ -725,7 +757,10 @@
                             tb.appendChild(tr); 
                         }); 
                     } else { tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--text-dim);padding:30px'>${app.t('noData')}</td></tr>`; }
-                } else { tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--danger);padding:30px'>${r.message}</td></tr>`; }
+                } else { 
+                    tb.innerHTML = `<tr><td colspan='5' style='text-align:center;color:var(--danger);padding:30px'>${r.message}</td></tr>`; 
+                    if(r.message.includes('expired') || r.message.includes('hết hạn')) { auth.logout(); }
+                }
             }
         };
 
@@ -739,12 +774,24 @@
                 btn.style.background = 'transparent'; btn.style.color = 'var(--text)';
                 editor.isCodeMode['view'] = false;
 
-                const r = await api({ action: 'getData', id: id, email: state.user }); 
+                const r = await api({ action: 'getData', id: id }); 
                 if (r.success) { 
                     state.originalContent = r.content; document.getElementById('viewMetaDate').innerText = `Created: ${new Date(r.created).toLocaleDateString()}`; viewer.renderContent(r.content); editor.updateLines(document.getElementById('viewContent'), document.getElementById('viewLineNumbers'));
-                    const isOwner = (state.user && state.user === r.owner);
-                    if (r.isExpired) { if (isOwner) { document.getElementById('ownerRenewSection').classList.remove('hidden'); document.getElementById('viewOwnerBadge').classList.remove('hidden'); } else document.getElementById('modalExpired').classList.remove('hidden'); } 
-                    else if (isOwner) { document.getElementById('viewOwnerBadge').classList.remove('hidden'); document.getElementById('btnEdit').classList.remove('hidden'); }
+                    
+                    // Logic isOwner giờ được trả thẳng từ API (dựa trên token)
+                    // Vì bảo mật token, r.owner bây giờ chứa Email, ta không so sánh bằng state.user (vì state.user là token)
+                    // API mới đã tự đánh giá tính isOwner rồi.
+                    if (r.isExpired) { 
+                        // Nếu có quyền owner do API nhận diện qua token
+                        if (r.owner !== 'guest' && !r.message) { 
+                            document.getElementById('ownerRenewSection').classList.remove('hidden'); document.getElementById('viewOwnerBadge').classList.remove('hidden'); 
+                        } else {
+                            document.getElementById('modalExpired').classList.remove('hidden'); 
+                        }
+                    } 
+                    else if (r.owner !== 'guest') { 
+                        document.getElementById('viewOwnerBadge').classList.remove('hidden'); document.getElementById('btnEdit').classList.remove('hidden'); 
+                    }
                 } else document.getElementById('modalExpired').classList.remove('hidden');
             },
             renderContent: (t) => { document.getElementById('viewContent').innerText = t; },
@@ -755,7 +802,7 @@
                 editor.updateLines(area, document.getElementById('editLineNumbers')); area.focus(); 
             },
             cancelEdit: () => { document.getElementById('viewEditorWrapper').classList.remove('hidden'); document.getElementById('editEditorWrapper').classList.add('hidden'); document.getElementById('editControls').classList.add('hidden'); document.getElementById('btnEdit').classList.remove('hidden'); },
-            saveEdit: async () => { const n = document.getElementById('editContent').value; const r = await api({ action: 'update', id: state.currentShareId, email: state.user, content: n }); if (r.success) { alert(app.t('msgUpdateSuccess')); state.originalContent = n; viewer.renderContent(n); viewer.cancelEdit(); } else alert(r.message); },
+            saveEdit: async () => { const n = document.getElementById('editContent').value; const r = await api({ action: 'update', id: state.currentShareId, content: n }); if (r.success) { alert(app.t('msgUpdateSuccess')); state.originalContent = n; viewer.renderContent(n); viewer.cancelEdit(); } else alert(r.message); },
             
             renew: async () => {
                 let dur = document.getElementById('renewDuration').value;
@@ -768,7 +815,7 @@
                     if (diffMs <= 0) return alert(app.t('msgInvalidDate'));
                     dur = Math.ceil(diffMs / 60000);
                 }
-                const r = await api({ action: 'renew', id: state.currentShareId, email: state.user, duration: dur });
+                const r = await api({ action: 'renew', id: state.currentShareId, duration: dur });
                 if (r.success) { alert(app.t('msgRenewSuccess')); window.location.reload(); } else alert(r.message);
             },
             handleRenewChange: (val) => {
