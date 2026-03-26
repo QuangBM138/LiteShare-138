@@ -25,10 +25,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Inject API URL
-        # Bước này sẽ tìm chữ "PLACEHOLDER_API_URL" trong index.html
+        # Bước này sẽ tìm chữ "PLACEHOLDER_API_URL" trong js/config.js
         # và thay thế bằng Secret bạn đã lưu trên GitHub
         run: |
-          sed -i 's|PLACEHOLDER_API_URL|${{ secrets.APPS_SCRIPT_URL }}|g' index.html
+          sed -i 's|PLACEHOLDER_API_URL|${{ secrets.APPS_SCRIPT_URL }}|g' js/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
