@@ -28,7 +28,7 @@ jobs:
         # Bước này sẽ tìm chữ "PLACEHOLDER_API_URL" trong index.html
         # và thay thế bằng Secret bạn đã lưu trên GitHub
         run: |
-          sed -i 's|PLACEHOLDER_API_URL|${{ secrets.APPS_SCRIPT_URL }}|g' config.js
+          sed -i 's|PLACEHOLDER_API_URL|${{ secrets.APPS_SCRIPT_URL }}|g' js/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
